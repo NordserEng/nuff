@@ -12,18 +12,9 @@ use ruff::{ExitStatus, run};
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-#[cfg(all(
-    not(target_os = "windows"),
-    not(target_os = "openbsd"),
-    not(target_os = "aix"),
-    not(target_os = "android"),
-    any(
-        target_arch = "x86_64",
-        target_arch = "aarch64",
-        target_arch = "powerpc64",
-        target_arch = "riscv64"
-    )
-))]
+// The Linux wheels cross-compile through zig, which cannot link jemalloc, so Linux keeps the system
+// allocator.
+#[cfg(target_os = "macos")]
 #[global_allocator]
 static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
