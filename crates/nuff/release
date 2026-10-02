@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+#
+# Builds the nuff wheels on this Mac and publishes them as a GitHub release.
+#
+#   crates/nuff/release            build and smoke-test the wheels into target/nuff-dist
+#   crates/nuff/release --publish  the same, then create the release nuff-<version>
+#
+# Everything runs here, so a release costs no CI minutes: macOS arm64 builds natively, and both Linux
+# wheels cross-compile through zig and are smoke-tested in a container of their own architecture.
+set -euo pipefail
+cd "$(dirname "$0")/../.."
+
+if [[ "$(uname -s)-$(uname -m)" != "Darwin-arm64" ]]; then
+  echo "Run this on an Apple Silicon Mac: it builds the macOS arm64 wheel natively." >&2
+  exit 1
+fi
+for tool in rustup uvx docker gh; do
+  command -v "$tool" >/dev/null || { echo "Install $tool first." >&2; exit 1; }
+done
+
+version=$(sed -n 's/^version = "\(.*\)"/\1/p' crates/nuff/Cargo.toml | head -1)
+wheel_version=$(sed -n 's/^version = "\(.*\)"/\1/p' crates/nuff/pyproject.toml | head -1)
+if [[ "$version" != "$wheel_version" ]]; then
+  echo "crates/nuff/Cargo.toml says $version but crates/nuff/pyproject.toml says $wheel_version." >&2
+  exit 1
+fi
+tag="nuff-$version"
+
+if [[ "${1:-}" == --publish ]]; then
+  if [[ -n "$(git status --porcelain)" ]]; then
+    echo "Commit or stash first: a release is built from a clean, pushed commit." >&2
+    exit 1
+  fi
+  if gh release view "$tag" >/dev/null 2>&1; then
+    echo "$tag is already published. Consumers verify its bytes, so a fix ships as the next version." >&2
+    exit 1
+  fi
+fi
+
+dist=target/nuff-dist
+rm -rf "$dist"
+mkdir -p "$dist"
+maturin=(uvx --from 'maturin==1.15.0' --with ziglang maturin build --release --locked --out "$dist"
+  --manifest-path crates/nuff/Cargo.toml)
+
+rustup target add aarch64-apple-darwin aarch64-unknown-linux-gnu x86_64-unknown-linux-gnu >/dev/null
+"${maturin[@]}" --target aarch64-apple-darwin
+"${maturin[@]}" --target aarch64-unknown-linux-gnu --zig --compatibility manylinux2014
+"${maturin[@]}" --target x86_64-unknown-linux-gnu --zig --compatibility manylinux2014
+
+check() {
+  local reported
+  reported=$("$@")
+  if [[ "$reported" != "nuff $version" ]]; then
+    echo "A wheel reports '$reported', expected 'nuff $version'." >&2
+    exit 1
+  fi
+}
+venv=$(mktemp -d)
+uv venv -q "$venv"
+uv pip install -q --python "$venv/bin/python" "$dist"/nuff-*macosx*.whl
+check "$venv/bin/nuff" --version
+rm -rf "$venv"
+for pair in arm64:aarch64 amd64:x86_64; do
+  check docker run --rm --platform "linux/${pair%%:*}" -v "$PWD/$dist:/dist:ro" python:3.13-slim \
+    sh -c "pip install -q --root-user-action=ignore /dist/nuff-*_${pair##*:}.whl && nuff --version"
+done
+
+for wheel in "$dist"/*.whl; do
+  shasum -a 256 "$wheel" | cut -d' ' -f1 > "$wheel.sha256"
+done
+ls "$dist"
+
+if [[ "${1:-}" == --publish ]]; then
+  git push -q origin HEAD
+  git tag "$tag"
+  git push -q origin "$tag"
+  gh release create "$tag" --verify-tag --title "$tag" \
+    --notes "nuff wheels for macOS arm64 and Linux x86_64/aarch64. A consumer pins each wheel's URL and sha256." \
+    "$dist"/*.whl "$dist"/*.whl.sha256
+fi

@@ -1,0 +1,32 @@
+[package]
+name = "nuff"
+version = "0.1.0"
+description = "Nordser's ruff: upstream ruff plus Nordser's house rules"
+publish = false
+authors = { workspace = true }
+edition = { workspace = true }
+rust-version = { workspace = true }
+repository = "https://github.com/NordserEng/ruff"
+license = { workspace = true }
+
+[[bin]]
+name = "nuff"
+path = "src/main.rs"
+
+[dependencies]
+ruff = { workspace = true }
+ruff_command_line = { workspace = true }
+
+anyhow = { workspace = true }
+clap = { workspace = true, features = ["derive", "env", "wrap_help"] }
+colored = { workspace = true }
+wild = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+tikv-jemallocator = { workspace = true }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+mimalloc = { workspace = true }
+
+[lints]
+workspace = true
