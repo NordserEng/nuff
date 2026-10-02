@@ -168,6 +168,9 @@ pub enum Linter {
     /// [mccabe](https://pypi.org/project/mccabe/)
     #[prefix = "C90"]
     McCabe,
+    /// [nuff](https://github.com/NordserEng/ruff)
+    #[prefix = "NUF"]
+    Nuff,
     /// NumPy-specific rules
     #[prefix = "NPY"]
     Numpy,

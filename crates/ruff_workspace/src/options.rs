@@ -30,8 +30,8 @@ use ruff_linter::rules::pylint::settings::ConstantType;
 use ruff_linter::rules::{
     flake8_copyright, flake8_errmsg, flake8_gettext, flake8_implicit_str_concat,
     flake8_import_conventions, flake8_pytest_style, flake8_quotes, flake8_self,
-    flake8_tidy_imports, flake8_type_checking, flake8_unused_arguments, isort, mccabe, pep8_naming,
-    pycodestyle, pydoclint, pydocstyle, pyflakes, pylint, pyupgrade, ruff,
+    flake8_tidy_imports, flake8_type_checking, flake8_unused_arguments, isort, mccabe, nuff,
+    pep8_naming, pycodestyle, pydoclint, pydocstyle, pyflakes, pylint, pyupgrade, ruff,
 };
 use ruff_linter::settings::types::{
     IdentifierPattern, Language, OutputFormat, PreviewMode, PythonVersion, RequiredVersion,
@@ -1025,6 +1025,10 @@ pub struct LintCommonOptions {
     /// Options for the `flake8_self` plugin.
     #[option_group]
     pub flake8_self: Option<Flake8SelfOptions>,
+
+    /// Options for the `nuff` house rules.
+    #[option_group]
+    pub nuff: Option<NuffOptions>,
 
     /// Options for the `flake8-tidy-imports` plugin.
     #[option_group]
@@ -2090,6 +2094,51 @@ impl Flake8QuotesOptions {
             multiline_quotes: self.multiline_quotes.unwrap_or_default(),
             docstring_quotes: self.docstring_quotes.unwrap_or_default(),
             avoid_escape: self.avoid_escape.unwrap_or(true),
+        }
+    }
+}
+
+/// Options for the `nuff` house rules.
+#[derive(
+    Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize, OptionsMetadata, CombineOptions,
+)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+pub struct NuffOptions {
+    /// Fully qualified names of synchronous functions that block, which an `async` function may
+    /// reach only through `asyncio.to_thread` (`NUF001`).
+    #[option(
+        default = r#"[]"#,
+        value_type = "list[str]",
+        example = r#"blocking-functions = ["app.platform.email.send_email"]"#
+    )]
+    pub blocking_functions: Option<Vec<String>>,
+
+    /// Fully qualified names of functions that call an outside service, which no function may
+    /// call while its session's transaction is open (`NUF005`).
+    #[option(
+        default = r#"[]"#,
+        value_type = "list[str]",
+        example = r#"external-functions = ["app.billing.services.vipps.create_charge"]"#
+    )]
+    pub external_functions: Option<Vec<String>>,
+
+    /// The module that defines each table, by table name. A module whose `ForeignKey` names a
+    /// table must import the module that defines it (`NUF004`).
+    #[option(
+        default = r#"{}"#,
+        value_type = "dict[str, str]",
+        example = r#"foreign-key-modules = { companies = "app.accounts.models" }"#
+    )]
+    pub foreign_key_modules: Option<FxHashMap<String, String>>,
+}
+
+impl NuffOptions {
+    pub(crate) fn into_settings(self) -> nuff::settings::Settings {
+        nuff::settings::Settings {
+            blocking_functions: self.blocking_functions.unwrap_or_default(),
+            external_functions: self.external_functions.unwrap_or_default(),
+            foreign_key_modules: self.foreign_key_modules.unwrap_or_default(),
         }
     }
 }
@@ -4338,6 +4387,7 @@ pub struct LintOptionsWire {
     flake8_errmsg: Option<Flake8ErrMsgOptions>,
     flake8_quotes: Option<Flake8QuotesOptions>,
     flake8_self: Option<Flake8SelfOptions>,
+    nuff: Option<NuffOptions>,
     flake8_tidy_imports: Option<Flake8TidyImportsOptions>,
     flake8_type_checking: Option<Flake8TypeCheckingOptions>,
     flake8_gettext: Option<Flake8GetTextOptions>,
@@ -4395,6 +4445,7 @@ impl From<LintOptionsWire> for LintOptions {
             flake8_errmsg,
             flake8_quotes,
             flake8_self,
+            nuff,
             flake8_tidy_imports,
             flake8_type_checking,
             flake8_gettext,
@@ -4451,6 +4502,7 @@ impl From<LintOptionsWire> for LintOptions {
                 flake8_errmsg,
                 flake8_quotes,
                 flake8_self,
+                nuff,
                 flake8_tidy_imports,
                 flake8_type_checking,
                 flake8_gettext,

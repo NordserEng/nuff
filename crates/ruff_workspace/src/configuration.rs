@@ -53,7 +53,7 @@ use crate::options::{
     Flake8ImplicitStrConcatOptions, Flake8ImportConventionsOptions, Flake8PytestStyleOptions,
     Flake8QuotesOptions, Flake8SelfOptions, Flake8TidyImportsOptions, Flake8TypeCheckingOptions,
     Flake8UnusedArgumentsOptions, FormatOptions, IsortOptions, LintCommonOptions, LintOptions,
-    McCabeOptions, Options, Pep8NamingOptions, PyUpgradeOptions, PycodestyleOptions,
+    McCabeOptions, NuffOptions, Options, Pep8NamingOptions, PyUpgradeOptions, PycodestyleOptions,
     PydoclintOptions, PydocstyleOptions, PyflakesOptions, PylintOptions, RuffOptions,
     validate_required_version,
 };
@@ -454,6 +454,10 @@ impl Configuration {
                     .flake8_self
                     .map(Flake8SelfOptions::into_settings)
                     .unwrap_or_default(),
+                nuff: lint
+                    .nuff
+                    .map(NuffOptions::into_settings)
+                    .unwrap_or_default(),
                 flake8_tidy_imports: lint
                     .flake8_tidy_imports
                     .map(Flake8TidyImportsOptions::try_into_settings)
@@ -764,6 +768,7 @@ pub struct LintConfiguration {
     pub flake8_pytest_style: Option<Flake8PytestStyleOptions>,
     pub flake8_quotes: Option<Flake8QuotesOptions>,
     pub flake8_self: Option<Flake8SelfOptions>,
+    pub nuff: Option<NuffOptions>,
     pub flake8_tidy_imports: Option<Flake8TidyImportsOptions>,
     pub flake8_type_checking: Option<Flake8TypeCheckingOptions>,
     pub flake8_unused_arguments: Option<Flake8UnusedArgumentsOptions>,
@@ -885,6 +890,7 @@ impl LintConfiguration {
             flake8_pytest_style: options.common.flake8_pytest_style,
             flake8_quotes: options.common.flake8_quotes,
             flake8_self: options.common.flake8_self,
+            nuff: options.common.nuff,
             flake8_tidy_imports: options.common.flake8_tidy_imports,
             flake8_type_checking: options.common.flake8_type_checking,
             flake8_unused_arguments: options.common.flake8_unused_arguments,
@@ -1304,6 +1310,7 @@ impl LintConfiguration {
             flake8_pytest_style: self.flake8_pytest_style.combine(config.flake8_pytest_style),
             flake8_quotes: self.flake8_quotes.combine(config.flake8_quotes),
             flake8_self: self.flake8_self.combine(config.flake8_self),
+            nuff: self.nuff.combine(config.nuff),
             flake8_tidy_imports: self.flake8_tidy_imports.combine(config.flake8_tidy_imports),
             flake8_type_checking: self
                 .flake8_type_checking
@@ -1527,6 +1534,7 @@ fn warn_about_deprecated_top_level_lint_options(
         flake8_errmsg,
         flake8_quotes,
         flake8_self,
+        nuff,
         flake8_tidy_imports,
         flake8_type_checking,
         flake8_gettext,
@@ -1657,6 +1665,10 @@ fn warn_about_deprecated_top_level_lint_options(
 
     if flake8_self.is_some() {
         used_options.push("flake8-self");
+    }
+
+    if nuff.is_some() {
+        used_options.push("nuff");
     }
 
     if flake8_tidy_imports.is_some() {
