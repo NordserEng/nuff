@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+message_file="$1"
+marker="$(git rev-parse --git-path nuff-gate-verified)"
+if [[ -f "$marker" && "$(<"$marker")" == "$(git write-tree)" ]] && ! grep -q '^CI-Verified: nuff-gate$' "$message_file"; then
+  printf '\nCI-Verified: nuff-gate\n' >> "$message_file"
+fi
