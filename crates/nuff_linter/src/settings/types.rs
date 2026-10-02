@@ -6,10 +6,10 @@ use std::str::FromStr;
 use std::string::ToString;
 use std::sync::{Arc, OnceLock};
 
+use crate::diagnostic::DiagnosticFormat;
 use anyhow::{Context, Result, bail};
 use globset::{Candidate, Glob, GlobMatcher, GlobSet, GlobSetBuilder};
 use log::debug;
-use nuff_db::diagnostic::DiagnosticFormat;
 use pep440_rs::{VersionSpecifier, VersionSpecifiers};
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
@@ -28,7 +28,6 @@ use crate::rule_selector::UnresolvedRuleSelector;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, EnumIter)]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[serde(rename_all = "lowercase")]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum PythonVersion {
     Py37,
     Py38,
@@ -423,7 +422,6 @@ impl FromStr for PatternPrefixPair {
 )]
 #[serde(rename_all = "lowercase")]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum Language {
     #[default]
     Python,
@@ -551,7 +549,6 @@ impl FromIterator<ExtensionPair> for ExtensionMapping {
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Debug, Hash, Default)]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[serde(rename_all = "kebab-case")]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum OutputFormat {
     Concise,
     #[default]
@@ -652,17 +649,6 @@ impl FromStr for RequiredVersion {
         } else {
             Ok(Self(VersionSpecifiers::from_str(value)?))
         }
-    }
-}
-
-#[cfg(feature = "schemars")]
-impl schemars::JsonSchema for RequiredVersion {
-    fn schema_name() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed("RequiredVersion")
-    }
-
-    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        <String as schemars::JsonSchema>::json_schema(generator)
     }
 }
 

@@ -1319,20 +1319,20 @@ fn is_known_future_feature(name: &str) -> bool {
     )
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, get_size2::GetSize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum LazyImportKind {
     Import,
     ImportFrom,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, get_size2::GetSize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum LazyImportContext {
     Function,
     Class,
     TryExceptBlocks,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, get_size2::GetSize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SemanticSyntaxError {
     pub kind: SemanticSyntaxErrorKind,
     pub range: TextRange,
@@ -1512,7 +1512,7 @@ impl Ranged for SemanticSyntaxError {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, get_size2::GetSize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SemanticSyntaxErrorKind {
     /// Represents a `lazy` import statement in an invalid context.
     LazyImportNotAllowed {
@@ -1972,7 +1972,7 @@ pub enum SemanticSyntaxErrorKind {
     ReturnInGenerator,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, get_size2::GetSize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AwaitOutsideAsyncFunctionKind {
     Await,
     AsyncFor,
@@ -1991,7 +1991,7 @@ impl Display for AwaitOutsideAsyncFunctionKind {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, get_size2::GetSize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum YieldOutsideFunctionKind {
     Yield,
     YieldFrom,
@@ -2014,7 +2014,7 @@ impl Display for YieldOutsideFunctionKind {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, get_size2::GetSize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum InvalidExpressionPosition {
     TypeVarBound,
     TypeVarDefault,
@@ -2039,7 +2039,7 @@ impl Display for InvalidExpressionPosition {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, get_size2::GetSize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum InvalidExpressionKind {
     Yield,
     NamedExpr,
@@ -2056,7 +2056,7 @@ impl Display for InvalidExpressionKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, get_size2::GetSize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum WriteToDebugKind {
     Store,
     Delete(PythonVersion),

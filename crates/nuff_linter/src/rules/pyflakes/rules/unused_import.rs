@@ -484,7 +484,7 @@ pub(crate) fn unused_import(checker: &Checker, scope: &Scope) {
                 }
             }
 
-            diagnostic.add_primary_tag(nuff_db::diagnostic::DiagnosticTag::Unnecessary);
+            diagnostic.add_primary_tag(crate::diagnostic::DiagnosticTag::Unnecessary);
         }
     }
 
@@ -506,7 +506,7 @@ pub(crate) fn unused_import(checker: &Checker, scope: &Scope) {
             diagnostic.set_parent(range.start());
         }
 
-        diagnostic.add_primary_tag(nuff_db::diagnostic::DiagnosticTag::Unnecessary);
+        diagnostic.add_primary_tag(crate::diagnostic::DiagnosticTag::Unnecessary);
     }
 }
 

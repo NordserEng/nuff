@@ -1,11 +1,12 @@
-use std::hash::Hash;
+use std::cell::RefCell;
+use std::hash::{Hash, Hasher};
+use std::path::PathBuf;
 use std::str::FromStr;
+use std::sync::Arc;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
-
-use nuff_ranged_value::{RangedValue, ValueSource};
 
 use crate::codes::{Category, NoqaCode, RuleCodePrefix, RuleIter, RuleStatus};
 use crate::preview::{is_human_readable_names_enabled, is_rule_categories_enabled};
@@ -13,17 +14,86 @@ use crate::registry::{Linter, Rule, RuleNamespace};
 use crate::settings::types::PreviewMode;
 use crate::warn_user_once_by_message;
 
+/// Where a configuration value was read from.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub enum ValueSource {
+    File(Arc<PathBuf>),
+    #[default]
+    Cli,
+}
+
+thread_local! {
+    /// Serde can't pass context into a [`Deserialize`] implementation, so the source of the values
+    /// being deserialized lives here for the duration of a [`ValueSourceGuard`].
+    static VALUE_SOURCE: RefCell<Option<ValueSource>> = const { RefCell::new(None) };
+}
+
+/// Attributes every [`UnresolvedRuleSelector`] deserialized on this thread to `source` until the
+/// guard drops.
+#[must_use]
+pub struct ValueSourceGuard {
+    previous: Option<ValueSource>,
+}
+
+impl ValueSourceGuard {
+    pub fn new(source: ValueSource) -> Self {
+        Self {
+            previous: VALUE_SOURCE.replace(Some(source)),
+        }
+    }
+}
+
+impl Drop for ValueSourceGuard {
+    fn drop(&mut self) {
+        VALUE_SOURCE.set(self.previous.take());
+    }
+}
+
 /// A potential rule selector that has not yet been validated and tracks its source.
-///
-/// If you add a new field that uses this type, be sure to update `rule-codes-in-selectors`
-/// (`RUF201`) to validate the additional selector field.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Serialize)]
 #[serde(transparent)]
-pub struct UnresolvedRuleSelector(RangedValue<String>);
+pub struct UnresolvedRuleSelector {
+    selector: String,
+    #[serde(skip)]
+    source: ValueSource,
+}
+
+impl<'de> Deserialize<'de> for UnresolvedRuleSelector {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let selector = String::deserialize(deserializer)?;
+        let source = VALUE_SOURCE.with_borrow(|source| source.clone().unwrap_or_default());
+        Ok(Self { selector, source })
+    }
+}
+
+impl PartialEq for UnresolvedRuleSelector {
+    fn eq(&self, other: &Self) -> bool {
+        self.selector == other.selector
+    }
+}
+
+impl Eq for UnresolvedRuleSelector {}
+
+impl Hash for UnresolvedRuleSelector {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.selector.hash(state);
+    }
+}
+
+impl std::fmt::Debug for UnresolvedRuleSelector {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("UnresolvedRuleSelector")
+            .field(&self.selector)
+            .finish()
+    }
+}
 
 impl UnresolvedRuleSelector {
     pub fn resolve(&self, preview: PreviewMode) -> Result<RuleSelector, RuleResolutionError> {
-        let selector = self.0.as_str();
+        let selector = self.selector.as_str();
 
         RuleSelector::from_str(selector).or_else(|_| {
             let kind = if let Ok(category) = Category::from_str(selector) {
@@ -46,7 +116,10 @@ impl UnresolvedRuleSelector {
     }
 
     pub fn new(selector: impl Into<String>, source: ValueSource) -> Self {
-        Self(RangedValue::new(selector.into(), source))
+        Self {
+            selector: selector.into(),
+            source,
+        }
     }
 
     pub fn cli(selector: impl Into<String>) -> Self {
@@ -54,7 +127,7 @@ impl UnresolvedRuleSelector {
     }
 
     pub fn source(&self) -> &ValueSource {
-        self.0.source()
+        &self.source
     }
 }
 
@@ -77,9 +150,9 @@ pub struct RuleResolutionError {
 impl RuleResolutionError {
     fn from_selector(unresolved: &UnresolvedRuleSelector, kind: RuleResolutionErrorKind) -> Self {
         Self {
-            selector: unresolved.0.to_string(),
+            selector: unresolved.selector.clone(),
             setting: None,
-            source: unresolved.0.source().clone(),
+            source: unresolved.source.clone(),
             kind,
         }
     }
@@ -109,11 +182,8 @@ impl std::fmt::Display for RuleResolutionError {
             None => format_args!(""),
         };
         let source = match &source {
-            ValueSource::File(path) => format_args!("`{}`", path.as_path()),
-            ValueSource::ScriptMetadata(_) => format_args!("script metadata"),
+            ValueSource::File(path) => format_args!("`{}`", path.display()),
             ValueSource::Cli => format_args!("the CLI"),
-            ValueSource::Editor => format_args!("the editor configuration"),
-            ValueSource::UvMetadata => format_args!("uv metadata"),
         };
         match kind {
             RuleResolutionErrorKind::Removed => {
@@ -314,85 +384,6 @@ pub struct PreviewOptions {
     pub require_explicit: bool,
 }
 
-#[cfg(feature = "schemars")]
-mod schema {
-    use itertools::Itertools;
-    use schemars::{JsonSchema, Schema, SchemaGenerator};
-    use serde_json::Value;
-    use strum::IntoEnumIterator;
-
-    use crate::codes::{Category, Rule};
-    use crate::registry::RuleNamespace;
-    use crate::rule_selector::{Linter, RuleCodePrefix};
-    use crate::{RuleSelector, UnresolvedRuleSelector};
-
-    impl JsonSchema for UnresolvedRuleSelector {
-        fn schema_name() -> std::borrow::Cow<'static, str> {
-            std::borrow::Cow::Borrowed("RuleSelector")
-        }
-
-        fn json_schema(_gen: &mut SchemaGenerator) -> Schema {
-            let enum_values: Vec<String> = [
-                // Include the non-standard "ALL" selectors.
-                "ALL".to_string(),
-            ]
-            .into_iter()
-            .chain(Category::iter().map(|category| category.to_string()))
-            .chain(
-                RuleCodePrefix::iter()
-                    .map(|p| {
-                        let prefix = p.linter().common_prefix();
-                        let code = p.short_code();
-                        format!("{prefix}{code}")
-                    })
-                    .chain(Linter::iter().filter_map(|l| {
-                        let prefix = l.common_prefix();
-                        (!prefix.is_empty()).then(|| prefix.to_string())
-                    })),
-            )
-            .chain(
-                Rule::iter()
-                    .filter(|rule| !rule.is_removed())
-                    .map(|rule| rule.name().to_string()),
-            )
-            .filter(|p| {
-                // Exclude removed rules and prefixes where all of the rules are removed
-                match RuleSelector::parse_no_redirect(p) {
-                    Ok(RuleSelector::Rule { rule, .. }) => !rule.is_removed(),
-                    Ok(RuleSelector::Prefix { prefix, .. }) => {
-                        !prefix.rules().all(|rule| rule.is_removed())
-                    }
-                    _ => true,
-                }
-            })
-            .filter(|_rule| {
-                // Filter out all test-only rules
-                #[cfg(any(feature = "test-rules", test))]
-                #[expect(clippy::used_underscore_binding)]
-                if _rule.starts_with("RUF9")
-                    || _rule == "PLW0101"
-                    || Rule::from_name(_rule)
-                        .is_ok_and(|rule| matches!(rule.category(), Category::Testing))
-                {
-                    return false;
-                }
-
-                true
-            })
-            .sorted()
-            .collect();
-
-            let mut schema = schemars::json_schema!({ "type": "string" });
-            schema.ensure_object().insert(
-                "enum".to_string(),
-                Value::Array(enum_values.into_iter().map(Value::String).collect()),
-            );
-
-            schema
-        }
-    }
-}
-
 impl RuleSelector {
     pub fn specificity(&self) -> Specificity {
         match self {
@@ -410,32 +401,6 @@ impl RuleSelector {
                     _ => panic!(
                         "RuleSelector::specificity doesn't yet support codes with so many characters"
                     ),
-                }
-            }
-        }
-    }
-
-    /// Parse [`RuleSelector`] from a string; but do not follow redirects.
-    #[cfg(feature = "schemars")]
-    fn parse_no_redirect(s: &str) -> Result<Self, ParseError> {
-        // **Changes should be reflected in `from_str` as well**
-        match s {
-            "ALL" => Ok(Self::All),
-            _ => {
-                let (linter, code) =
-                    Linter::parse_code(s).ok_or_else(|| ParseError::Unknown(s.to_string()))?;
-
-                if code.is_empty() {
-                    return Ok(Self::Linter(linter));
-                }
-
-                let prefix = RuleCodePrefix::parse(&linter, code)
-                    .map_err(|_| ParseError::Unknown(s.to_string()))?;
-
-                if let Some(rule) = prefix.as_rule() {
-                    Ok(Self::Rule { rule })
-                } else {
-                    Ok(Self::Prefix { prefix })
                 }
             }
         }

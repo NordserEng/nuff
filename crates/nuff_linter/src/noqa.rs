@@ -6,7 +6,7 @@ use std::path::Path;
 use anyhow::Result;
 use log::warn;
 
-use nuff_db::diagnostic::LintName;
+use crate::diagnostic::LintName;
 use nuff_python_trivia::{CommentRanges, Cursor, indentation_at_offset};
 use nuff_source_file::LineRanges;
 use nuff_text_size::{Ranged, TextLen, TextRange, TextSize};

@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use anyhow::Result;
-use nuff_db::diagnostic::Diagnostic;
+use nuff_linter::diagnostic::Diagnostic;
 use nuff_linter::package::PackageRoot;
 use nuff_linter::packaging;
 use nuff_linter::settings::flags;

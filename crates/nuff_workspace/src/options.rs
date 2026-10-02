@@ -12,7 +12,6 @@ use nuff_macros::{CombineOptions, OptionsMetadata};
 
 #[derive(Clone, Debug, PartialEq, Eq, Default, OptionsMetadata, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct Options {
     /// A path to the cache directory.
     ///
@@ -437,14 +436,12 @@ impl Options {
 /// Configures how nuff checks your code.
 ///
 /// Options specified in the `lint` section take precedence over the deprecated top-level settings.
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Default, OptionsMetadata, Serialize, Deserialize)]
 #[serde(
     from = "LintOptionsWire",
     deny_unknown_fields,
     rename_all = "kebab-case"
 )]
-#[cfg_attr(feature = "schemars", schemars(!from))]
 pub struct LintOptions {
     #[serde(flatten)]
     pub common: LintCommonOptions,
@@ -532,7 +529,6 @@ pub(crate) fn validate_required_version(required_version: &RequiredVersion) -> a
 // is removed.
 // Don't add any new options to this struct. Add them to [`LintOptions`] directly to avoid exposing them in the
 // global settings.
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[derive(
     Clone, Debug, PartialEq, Eq, Default, OptionsMetadata, CombineOptions, Serialize, Deserialize,
 )]
@@ -854,7 +850,6 @@ pub struct LintCommonOptions {
     Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize, OptionsMetadata, CombineOptions,
 )]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct NuffOptions {
     /// Fully qualified names of synchronous functions that block, which an `async` function may
     /// reach only through `asyncio.to_thread` (`NUF001`).
@@ -899,7 +894,6 @@ impl NuffOptions {
     Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize, OptionsMetadata, CombineOptions,
 )]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct PyflakesOptions {
     /// Additional functions or classes to consider generic, such that any
     /// subscripts should be treated as type annotation (e.g., `ForeignKey` in

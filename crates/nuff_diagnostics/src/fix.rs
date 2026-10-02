@@ -6,9 +6,7 @@ use nuff_text_size::{Ranged, TextSize};
 use crate::edit::Edit;
 
 /// Indicates if a fix can be applied.
-#[derive(
-    Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, is_macro::Is, get_size2::GetSize,
-)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, is_macro::Is)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "lowercase"))]
 pub enum Applicability {
@@ -32,7 +30,7 @@ pub enum Applicability {
 }
 
 /// Indicates the level of isolation required to apply a fix.
-#[derive(Default, Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, get_size2::GetSize)]
+#[derive(Default, Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum IsolationLevel {
     /// The fix should be applied as long as no other fixes in the same group have been applied.
@@ -43,7 +41,7 @@ pub enum IsolationLevel {
 }
 
 /// A collection of [`Edit`] elements to be applied to a source file.
-#[derive(Debug, PartialEq, Eq, Clone, Hash, get_size2::GetSize)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Fix {
     /// The [`Edit`] elements to be applied, sorted by [`Edit::start`] in ascending order.

@@ -1,7 +1,7 @@
 //! Remnant of the registry of all [`Rule`] implementations, now it's reexporting from codes.rs
 //! with some helper symbols
 
-use nuff_db::diagnostic::LintName;
+use crate::diagnostic::LintName;
 use strum_macros::EnumIter;
 
 pub use codes::Rule;

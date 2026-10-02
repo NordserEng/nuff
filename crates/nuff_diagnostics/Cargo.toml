@@ -13,9 +13,8 @@ doctest = false
 test = false
 
 [dependencies]
-nuff_text_size = { workspace = true, features = ["get-size"] }
+nuff_text_size = { workspace = true }
 
-get-size2 = { workspace = true }
 is-macro = { workspace = true }
 serde = { workspace = true, optional = true, features = [] }
 

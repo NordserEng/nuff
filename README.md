@@ -26,9 +26,9 @@ file.
 
 A local gate keeps `main` releasable; GitHub runs nothing. Install it once per checkout with
 `crates/nuff/gate install`. Before every commit, stage the complete change and run `crates/nuff/gate`. It
-checks formatting, clippy, and the tests of `nuff_linter`, `nuff_workspace` and the `nuff` CLI in about
-10–30 s against the incremental build. The hook refuses an unverified staged tree and any commit on
-`main`, and stamps a verified commit `CI-Verified: nuff-gate`.
+checks formatting, clippy, and every crate's tests in about 10–30 s against the incremental build. The
+hook refuses an unverified staged tree and any commit on `main`, and stamps a verified commit
+`CI-Verified: nuff-gate`.
 
 ## Releasing
 

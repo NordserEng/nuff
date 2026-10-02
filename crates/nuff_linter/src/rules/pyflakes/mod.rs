@@ -9,8 +9,8 @@ pub mod settings;
 mod tests {
     use std::path::Path;
 
+    use crate::diagnostic::Diagnostic;
     use anyhow::Result;
-    use nuff_db::diagnostic::Diagnostic;
     use nuff_python_parser::ParseOptions;
     use regex::Regex;
 

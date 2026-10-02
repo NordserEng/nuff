@@ -9,7 +9,7 @@ use anyhow::Result;
 use itertools::Itertools;
 use rustc_hash::FxHashMap;
 
-use nuff_db::diagnostic::{
+use crate::diagnostic::{
     Diagnostic, DiagnosticFormat, DisplayDiagnosticConfig, DisplayDiagnostics, Span,
 };
 use nuff_notebook::Notebook;
@@ -530,7 +530,7 @@ mod tests {
     #[test]
     fn test_diff_diagnostics() -> Result<()> {
         use crate::codes::Rule;
-        use nuff_db::diagnostic::{DiagnosticId, LintName};
+        use crate::diagnostic::{DiagnosticId, LintName};
 
         let settings_before = LinterSettings::for_rule(Rule::UnusedVariable);
         let settings_after = LinterSettings::for_rule(Rule::UnusedImport);

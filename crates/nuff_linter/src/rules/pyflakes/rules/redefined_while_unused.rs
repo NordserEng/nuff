@@ -274,7 +274,7 @@ pub(crate) fn redefined_while_unused(checker: &Checker, scope_id: ScopeId, scope
                 },
                 info.binding.range(),
             );
-            diagnostic.add_primary_tag(nuff_db::diagnostic::DiagnosticTag::Unnecessary);
+            diagnostic.add_primary_tag(crate::diagnostic::DiagnosticTag::Unnecessary);
 
             diagnostic.secondary_annotation(
                 format_args!("previous definition of `{name}` here"),

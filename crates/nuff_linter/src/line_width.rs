@@ -13,7 +13,6 @@ use nuff_macros::CacheKey;
 ///
 /// The allowed range of values is 1..=65535
 #[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct LineLength(NonZeroU16);
 
 impl LineLength {
@@ -137,7 +136,6 @@ impl From<LineLength> for NonZeroU16 {
 
 /// The size of a tab.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, CacheKey)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct IndentWidth(NonZeroU8);
 
 impl IndentWidth {}

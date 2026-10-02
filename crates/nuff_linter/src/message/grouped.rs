@@ -5,7 +5,7 @@ use std::num::NonZeroUsize;
 
 use colored::Colorize;
 
-use nuff_db::diagnostic::Diagnostic;
+use crate::diagnostic::Diagnostic;
 use nuff_diagnostics::Applicability;
 use nuff_notebook::NotebookIndex;
 use nuff_source_file::{LineColumn, OneIndexed};

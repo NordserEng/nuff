@@ -11,6 +11,7 @@ use clap::builder::styling::{AnsiColor, Effects};
 use clap::builder::{TypedValueParser, ValueParserFactory};
 use itertools::Itertools;
 use nuff_linter::logging::LogLevel;
+use nuff_linter::rule_selector::{ValueSource, ValueSourceGuard};
 use nuff_linter::settings::types::{
     ExtensionPair, FilePattern, OutputFormat, PatternPrefixPair, PerFileIgnore, PreviewMode,
     PythonVersion, UnsafeFixes,
@@ -18,7 +19,6 @@ use nuff_linter::settings::types::{
 use nuff_linter::{UnresolvedRuleSelector, UnresolvedRuleSelectorParser};
 use nuff_options_metadata::{OptionEntry, OptionsMetadata};
 use nuff_python_ast as ast;
-use nuff_ranged_value::{ValueSource, ValueSourceGuard};
 use nuff_workspace::configuration::{Configuration, RuleSelection};
 use nuff_workspace::options::Options;
 use nuff_workspace::resolver::ConfigurationTransformer;
@@ -621,7 +621,7 @@ impl TypedValueParser for ConfigArgumentParser {
             }
         }
 
-        let _guard = ValueSourceGuard::new(ValueSource::Cli, false);
+        let _guard = ValueSourceGuard::new(ValueSource::Cli);
 
         let config_parse_error = match toml::Table::from_str(value) {
             Ok(table) => match Options::from_toml_table(table) {

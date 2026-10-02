@@ -12,9 +12,7 @@ license = { workspace = true }
 doctest = false
 
 [dependencies]
-get-size2 = { workspace = true }
 nuff_macros = { workspace = true }
-salsa = { workspace = true, optional = true }
 
 [dev-dependencies]
 static_assertions = { workspace = true }

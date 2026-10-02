@@ -29,7 +29,7 @@ use log::debug;
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 
-use nuff_db::diagnostic::{Annotation, Diagnostic, DiagnosticTag, IntoDiagnosticMessage, Span};
+use crate::diagnostic::{Annotation, Diagnostic, DiagnosticTag, IntoDiagnosticMessage, Span};
 use nuff_diagnostics::{Applicability, Fix, IsolationLevel};
 use nuff_notebook::{CellOffsets, NotebookIndex};
 use nuff_python_ast::helpers::{collect_import_from_member, is_docstring_stmt, to_module_path};

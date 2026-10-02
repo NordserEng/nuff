@@ -16,14 +16,12 @@ ignored = ["colored"]
 
 [dependencies]
 nuff_cache = { workspace = true }
-nuff_db = { workspace = true }
 nuff_linter = { workspace = true }
 nuff_macros = { workspace = true }
 nuff_options_metadata = { workspace = true }
 nuff_python_ast = { workspace = true }
 nuff_python_semantic = { workspace = true, features = ["serde"] }
 nuff_python_stdlib = { workspace = true }
-nuff_ranged_value = { workspace = true }
 nuff_source_file = { workspace = true }
 
 anyhow = { workspace = true }
@@ -41,7 +39,6 @@ path-slash = { workspace = true }
 pep440_rs = { workspace = true }
 regex = { workspace = true }
 rustc-hash = { workspace = true }
-schemars = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true, optional = true }
 shellexpand = { workspace = true }
@@ -59,12 +56,6 @@ tempfile = { workspace = true }
 
 [features]
 default = []
-schemars = [
-    "dep:schemars",
-    "dep:serde_json",
-    "nuff_linter/schemars",
-    "nuff_python_semantic/schemars",
-]
 
 [lints]
 workspace = true

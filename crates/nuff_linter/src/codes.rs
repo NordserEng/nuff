@@ -8,7 +8,7 @@
 use std::fmt::Formatter;
 use std::sync::LazyLock;
 
-use nuff_db::diagnostic::SecondaryCode;
+use crate::diagnostic::SecondaryCode;
 use serde::Serialize;
 use strum::{IntoEnumIterator, VariantArray as _};
 use strum_macros::{Display, EnumIter, EnumMessage, EnumString, IntoStaticStr, VariantArray};

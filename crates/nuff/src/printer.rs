@@ -9,7 +9,7 @@ use itertools::{Itertools, iterate};
 use nuff_linter::linter::FixTable;
 use serde::Serialize;
 
-use nuff_db::diagnostic::{
+use nuff_linter::diagnostic::{
     Diagnostic, DiagnosticStylesheet, DisplayDiagnosticConfig, SecondaryCode, fmt_with_hyperlink,
 };
 use nuff_linter::fs::relativize_path;

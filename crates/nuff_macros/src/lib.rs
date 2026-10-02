@@ -7,17 +7,14 @@ use proc_macro::TokenStream;
 use syn::{DeriveInput, Error, ItemFn, ItemStruct, parse_macro_input};
 
 mod cache_key;
-mod combine;
 mod combine_options;
 mod config;
 mod derive_message_formats;
-mod env_vars;
 mod kebab_case;
 mod map_codes;
 mod newtype_index;
 mod rule_code_prefix;
 mod rule_namespace;
-mod rust_doc;
 mod violation_metadata;
 
 #[proc_macro_derive(OptionsMetadata, attributes(option, option_group))]
@@ -29,15 +26,6 @@ pub fn derive_options_metadata(input: TokenStream) -> TokenStream {
         .into()
 }
 
-#[proc_macro_derive(RustDoc)]
-pub fn derive_rust_doc(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-
-    rust_doc::derive_impl(input)
-        .unwrap_or_else(syn::Error::into_compile_error)
-        .into()
-}
-
 #[proc_macro_derive(CombineOptions)]
 pub fn derive_combine_options(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -45,27 +33,6 @@ pub fn derive_combine_options(input: TokenStream) -> TokenStream {
     combine_options::derive_impl(input)
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
-}
-
-/// Automatically derives a `ty_combine::Combine` implementation for the attributed type
-/// that calls `ty_combine::Combine::combine` for each field.
-///
-/// The derive macro can only be used on structs. Enums aren't yet supported.
-#[proc_macro_derive(Combine)]
-pub fn derive_combine(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-
-    combine::derive_impl(input)
-        .unwrap_or_else(syn::Error::into_compile_error)
-        .into()
-}
-
-/// Converts an identifier to a kebab case string.
-#[proc_macro]
-pub fn kebab_case(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as syn::Ident);
-
-    kebab_case::kebab_case(&input).into()
 }
 
 /// Generates a [`CacheKey`] implementation for the attributed type.
@@ -144,16 +111,4 @@ pub fn newtype_index(_metadata: TokenStream, input: TokenStream) -> TokenStream 
     };
 
     TokenStream::from(output)
-}
-
-/// Generates metadata for environment variables declared in the impl block.
-///
-/// This attribute macro should be applied to an `impl EnvVars` block.
-/// It will generate a `metadata()` method that returns all non-hidden
-/// environment variables with their documentation.
-#[proc_macro_attribute]
-pub fn attribute_env_vars_metadata(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(item as syn::ItemImpl);
-
-    env_vars::attribute_env_vars_metadata(input).into()
 }

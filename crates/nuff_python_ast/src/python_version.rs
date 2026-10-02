@@ -5,7 +5,6 @@ use std::{fmt, str::FromStr};
 /// N.B. This does not necessarily represent a Python version that we actually support.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "cache", derive(nuff_macros::CacheKey))]
-#[cfg_attr(feature = "get-size", derive(get_size2::GetSize))]
 pub struct PythonVersion {
     pub major: u8,
     pub minor: u8,
@@ -198,46 +197,6 @@ mod serde {
             S: serde::Serializer,
         {
             serializer.serialize_str(&self.to_string())
-        }
-    }
-}
-
-#[cfg(feature = "schemars")]
-mod schemars {
-    use super::PythonVersion;
-    use schemars::{JsonSchema, Schema, SchemaGenerator};
-    use serde_json::Value;
-
-    impl JsonSchema for PythonVersion {
-        fn schema_name() -> std::borrow::Cow<'static, str> {
-            std::borrow::Cow::Borrowed("PythonVersion")
-        }
-
-        fn json_schema(_gen: &mut SchemaGenerator) -> Schema {
-            let mut any_of: Vec<Value> = vec![
-                schemars::json_schema!({
-                    "type": "string",
-                    "pattern": r"^\d+\.\d+$",
-                })
-                .into(),
-            ];
-
-            for version in Self::iter() {
-                let mut schema = schemars::json_schema!({
-                    "const": version.to_string(),
-                });
-                schema.ensure_object().insert(
-                    "description".to_string(),
-                    Value::String(format!("Python {version}")),
-                );
-                any_of.push(schema.into());
-            }
-
-            let mut schema = Schema::default();
-            schema
-                .ensure_object()
-                .insert("anyOf".to_string(), Value::Array(any_of));
-            schema
         }
     }
 }

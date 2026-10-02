@@ -2,7 +2,7 @@ use std::fmt::{Debug, Display};
 
 use serde::Serialize;
 
-use nuff_db::diagnostic::Diagnostic;
+use crate::diagnostic::Diagnostic;
 use nuff_source_file::SourceFile;
 use nuff_text_size::TextRange;
 

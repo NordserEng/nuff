@@ -3,15 +3,14 @@ use std::fmt::Display;
 use std::io::Write;
 use std::path::Path;
 
-use nuff_db::panic::PanicError;
+use crate::panic::PanicError;
 use rustc_hash::FxHashMap;
 
-use nuff_db::diagnostic::{
+use crate::diagnostic::{
     Annotation, Diagnostic, DiagnosticFormat, DiagnosticId, DisplayDiagnosticConfig,
-    DisplayDiagnostics, FileResolver, Input, LintName, SecondaryCode, Severity, Span,
-    SubDiagnostic, SubDiagnosticSeverity, UnifiedFile,
+    DisplayDiagnostics, FileResolver, LintName, SecondaryCode, Severity, Span, SubDiagnostic,
+    SubDiagnosticSeverity,
 };
-use nuff_db::files::File;
 
 pub(crate) use grouped::GroupedEmitter;
 use nuff_notebook::NotebookIndex;
@@ -132,30 +131,12 @@ where
 }
 
 impl FileResolver for EmitterContext<'_> {
-    fn path(&self, _file: File) -> &str {
-        unimplemented!("Expected a nuff file for rendering a nuff diagnostic");
+    fn notebook_index(&self, file: &SourceFile) -> Option<NotebookIndex> {
+        self.notebook_indexes.get(file.name()).cloned()
     }
 
-    fn input(&self, _file: File) -> Input {
-        unimplemented!("Expected a nuff file for rendering a nuff diagnostic");
-    }
-
-    fn notebook_index(&self, file: &UnifiedFile) -> Option<NotebookIndex> {
-        match file {
-            UnifiedFile::Ty(_) => {
-                unimplemented!("Expected a nuff file for rendering a nuff diagnostic")
-            }
-            UnifiedFile::Nuff(file) => self.notebook_indexes.get(file.name()).cloned(),
-        }
-    }
-
-    fn is_notebook(&self, file: &UnifiedFile) -> bool {
-        match file {
-            UnifiedFile::Ty(_) => {
-                unimplemented!("Expected a nuff file for rendering a nuff diagnostic")
-            }
-            UnifiedFile::Nuff(file) => self.notebook_indexes.get(file.name()).is_some(),
-        }
+    fn is_notebook(&self, file: &SourceFile) -> bool {
+        self.notebook_indexes.get(file.name()).is_some()
     }
 
     fn current_directory(&self) -> &std::path::Path {
@@ -227,7 +208,7 @@ pub fn render_diagnostics(
 mod tests {
     use rustc_hash::FxHashMap;
 
-    use nuff_db::diagnostic::Diagnostic;
+    use crate::diagnostic::Diagnostic;
     use nuff_python_parser::{Mode, ParseOptions, parse_unchecked};
     use nuff_source_file::SourceFileBuilder;
     use nuff_text_size::{TextRange, TextSize};

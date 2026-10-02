@@ -5,8 +5,7 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use log::debug;
-use nuff_db::system::SystemPathBuf;
-use nuff_ranged_value::{ValueSource, ValueSourceGuard};
+use nuff_linter::rule_selector::{ValueSource, ValueSourceGuard};
 use pep440_rs::{Operator, Version, VersionSpecifiers};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -34,12 +33,7 @@ pub struct Pyproject {
 }
 
 fn parse_toml<T: DeserializeOwned>(path: &Path, table_path: &[&str]) -> Result<T> {
-    let _guard = ValueSourceGuard::new(
-        ValueSource::File(Arc::new(SystemPathBuf::from_path_buf_lossy(
-            path.to_path_buf(),
-        ))),
-        true,
-    );
+    let _guard = ValueSourceGuard::new(ValueSource::File(Arc::new(path.to_path_buf())));
 
     let contents = std::fs::read_to_string(path)
         .with_context(|| format!("Failed to read {}", path.display()))?;
@@ -275,20 +269,16 @@ mod tests {
     use rustc_hash::FxHashMap;
     use tempfile::TempDir;
 
-    use nuff_db::system::SystemPathBuf;
     use nuff_linter::UnresolvedRuleSelector;
+    use nuff_linter::rule_selector::{ValueSource, ValueSourceGuard};
     use nuff_linter::settings::types::PatternPrefixPair;
-    use nuff_ranged_value::{ValueSource, ValueSourceGuard};
 
     use crate::options::{LintCommonOptions, LintOptions, NuffOptions, Options};
     use crate::pyproject::{Pyproject, Tools, find_settings_toml, parse_pyproject_toml};
 
     #[test]
     fn deserialize() -> Result<()> {
-        let _guard = ValueSourceGuard::new(
-            ValueSource::File(Arc::new(SystemPathBuf::from("<filename>"))),
-            true,
-        );
+        let _guard = ValueSourceGuard::new(ValueSource::File(Arc::new("<filename>".into())));
         let pyproject: Pyproject = toml::from_str(r"")?;
         assert_eq!(pyproject.tool, None);
 

@@ -6,7 +6,7 @@ use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut, RangeBounds};
 
 /// An owned sequence of `T` indexed by `I`
-#[derive(Clone, PartialEq, Eq, Hash, get_size2::GetSize)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 pub struct IndexVec<I, T> {
     pub raw: Vec<T>,
@@ -181,8 +181,3 @@ impl<I: Idx, T, const N: usize> From<[T; N]> for IndexVec<I, T> {
 // not the phantom data.
 #[expect(unsafe_code)]
 unsafe impl<I: Idx, T> Send for IndexVec<I, T> where T: Send {}
-
-// SAFETY: `IndexVec` owns its elements; `I` is only a marker.
-#[expect(unsafe_code)]
-#[cfg(feature = "salsa")]
-unsafe impl<I, T: salsa::SalsaValue> salsa::SalsaValue for IndexVec<I, T> {}

@@ -10,7 +10,7 @@ use anyhow::Result;
 use log::error;
 
 use args::GlobalConfigArgs;
-use nuff_db::diagnostic::{Diagnostic, Severity};
+use nuff_linter::diagnostic::{Diagnostic, Severity};
 use nuff_linter::logging::set_up_logging;
 use nuff_linter::settings::flags::FixMode;
 use nuff_linter::{fs, warn_user_once};

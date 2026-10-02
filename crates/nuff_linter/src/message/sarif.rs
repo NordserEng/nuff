@@ -6,7 +6,7 @@ use anyhow::Result;
 use log::warn;
 use serde::{Serialize, Serializer};
 
-use nuff_db::diagnostic::{Diagnostic, DisplayDiagnosticConfig, SecondaryCode, Severity};
+use crate::diagnostic::{Diagnostic, DisplayDiagnosticConfig, SecondaryCode, Severity};
 use nuff_source_file::{OneIndexed, SourceFile};
 use nuff_text_size::{Ranged, TextRange};
 
@@ -427,7 +427,7 @@ impl<'a> SarifResult<'a> {
 
 #[cfg(test)]
 mod tests {
-    use nuff_db::diagnostic::DisplayDiagnosticConfig;
+    use crate::diagnostic::DisplayDiagnosticConfig;
 
     use crate::message::SarifEmitter;
     use crate::message::tests::{

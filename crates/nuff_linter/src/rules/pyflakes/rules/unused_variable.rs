@@ -268,5 +268,5 @@ pub(crate) fn unused_variable(checker: &Checker, name: &str, binding: &Binding) 
         diagnostic.set_fix(fix);
     }
     // Add Unnecessary tag for unused variables
-    diagnostic.add_primary_tag(nuff_db::diagnostic::DiagnosticTag::Unnecessary);
+    diagnostic.add_primary_tag(crate::diagnostic::DiagnosticTag::Unnecessary);
 }

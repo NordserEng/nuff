@@ -8,7 +8,7 @@ use itertools::Itertools;
 use nuff_python_parser::semantic_errors::SemanticSyntaxError;
 use rustc_hash::FxHashMap;
 
-use nuff_db::diagnostic::{Diagnostic, DiagnosticId, SecondaryCode};
+use crate::diagnostic::{Diagnostic, DiagnosticId, SecondaryCode};
 use nuff_notebook::Notebook;
 use nuff_python_ast::{ModModule, PySourceType, PythonVersion};
 use nuff_python_codegen::Stylist;
@@ -541,7 +541,7 @@ mod tests {
 
     use test_case::test_case;
 
-    use nuff_db::diagnostic::Diagnostic;
+    use crate::diagnostic::Diagnostic;
     use nuff_notebook::{Notebook, NotebookError};
 
     use crate::linter::{check_path, parse_unchecked_source};

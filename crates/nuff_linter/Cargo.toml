@@ -11,8 +11,8 @@ license = { workspace = true }
 [lib]
 
 [dependencies]
+nuff_annotate_snippets = { workspace = true }
 nuff_cache = { workspace = true }
-nuff_db = { workspace = true, features = ["junit", "serde"] }
 nuff_diagnostics = { workspace = true, features = ["serde"] }
 nuff_macros = { workspace = true }
 nuff_notebook = { workspace = true }
@@ -26,11 +26,11 @@ nuff_python_parser = { workspace = true }
 nuff_python_semantic = { workspace = true }
 nuff_python_stdlib = { workspace = true }
 nuff_python_trivia = { workspace = true }
-nuff_ranged_value = { workspace = true }
 nuff_source_file = { workspace = true, features = ["serde"] }
 nuff_text_size = { workspace = true }
 
 aho-corasick = { workspace = true }
+anstyle = { workspace = true }
 anyhow = { workspace = true }
 bitflags = { workspace = true }
 clap = { workspace = true, features = ["derive", "string"], optional = true }
@@ -48,17 +48,19 @@ log = { workspace = true }
 memchr = { workspace = true }
 natord = { workspace = true }
 path-absolutize = { workspace = true, features = ["fixed_workdir"] }
+pathdiff = { workspace = true }
 pep440_rs = { workspace = true }
 pyproject-toml = { workspace = true }
+quick-junit = { workspace = true }
 regex = { workspace = true }
 rustc-hash = { workspace = true }
-schemars = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 similar = { workspace = true }
 smallvec = { workspace = true }
 strum = { workspace = true }
 strum_macros = { workspace = true }
+supports-hyperlinks = { workspace = true }
 thiserror = { workspace = true }
 toml = { workspace = true }
 typed-arena = { workspace = true }
@@ -76,7 +78,6 @@ test-case = { workspace = true }
 
 [features]
 default = []
-schemars = ["dep:schemars", "nuff_python_ast/schemars"]
 # Enables rules for internal integration tests
 test-rules = []
 testing = []

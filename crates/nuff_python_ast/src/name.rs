@@ -26,23 +26,14 @@ use crate::generated::ExprName;
 ///
 /// `Name` uses `CharStr` because names appear throughout the AST and repeated heap-backed parser
 /// names share an allocation. By contrast, [`crate::DebugText`] uses `CompactString` because it
-/// builds a uniquely owned buffer incrementally, and `ty_module_resolver::ModuleName` uses
-/// `CompactString` because module names can be extended in place.
+/// builds a uniquely owned buffer incrementally.
 ///
 /// Converting a borrowed `&str` into `CharStr` creates a new value and does not preserve structural
 /// sharing. When an API retains text already held in a `CharStr` (including a `Name`), pass or clone
-/// the owned value rather than converting it through `&str`. This is especially relevant at Salsa
-/// interning boundaries.
+/// the owned value rather than converting it through `&str`.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-#[cfg_attr(feature = "salsa", derive(salsa::SalsaValue))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "cache", derive(nuff_macros::CacheKey))]
-#[cfg_attr(feature = "get-size", derive(get_size2::GetSize))]
-#[cfg_attr(
-    feature = "schemars",
-    derive(schemars::JsonSchema),
-    schemars(with = "String")
-)]
 pub struct Name(CharStr);
 
 impl Name {
@@ -162,22 +153,6 @@ impl From<Box<str>> for Name {
     }
 }
 
-#[cfg(feature = "salsa")]
-impl salsa::Lookup<Name> for &str {
-    #[inline]
-    fn into_owned(self) -> Name {
-        Name::new(self)
-    }
-}
-
-#[cfg(feature = "salsa")]
-impl salsa::HashEqLike<&str> for Name {
-    #[inline]
-    fn eq(&self, data: &&str) -> bool {
-        self == *data
-    }
-}
-
 impl From<Name> for String {
     #[inline]
     fn from(name: Name) -> Self {
@@ -189,38 +164,6 @@ impl From<Name> for CharStr {
     #[inline]
     fn from(name: Name) -> Self {
         name.0
-    }
-}
-
-#[cfg(feature = "salsa")]
-impl salsa::Lookup<compact_str::CompactString> for Name {
-    #[inline]
-    fn into_owned(self) -> compact_str::CompactString {
-        compact_str::CompactString::new(self.as_str())
-    }
-}
-
-#[cfg(feature = "salsa")]
-impl salsa::Lookup<compact_str::CompactString> for &Name {
-    #[inline]
-    fn into_owned(self) -> compact_str::CompactString {
-        compact_str::CompactString::new(self.as_str())
-    }
-}
-
-#[cfg(feature = "salsa")]
-impl salsa::HashEqLike<Name> for compact_str::CompactString {
-    #[inline]
-    fn eq(&self, data: &Name) -> bool {
-        self.as_str() == data.as_str()
-    }
-}
-
-#[cfg(feature = "salsa")]
-impl salsa::HashEqLike<&Name> for compact_str::CompactString {
-    #[inline]
-    fn eq(&self, data: &&Name) -> bool {
-        self.as_str() == data.as_str()
     }
 }
 
@@ -849,28 +792,8 @@ type SegmentsStack<'a> = ArrayVec<&'a str, SMALL_LEN>;
 
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "salsa")]
-    use std::hash::{DefaultHasher, Hash, Hasher};
 
-    #[cfg(feature = "salsa")]
-    use crate::name::Name;
     use crate::name::SegmentsVec;
-
-    #[cfg(feature = "salsa")]
-    #[test]
-    fn salsa_lookup_name_from_str() {
-        let name = Name::new("member");
-        let lookup = "member";
-
-        let mut name_hasher = DefaultHasher::new();
-        name.hash(&mut name_hasher);
-        let mut lookup_hasher = DefaultHasher::new();
-        lookup.hash(&mut lookup_hasher);
-
-        assert_eq!(name_hasher.finish(), lookup_hasher.finish());
-        assert!(salsa::HashEqLike::<&str>::eq(&name, &lookup));
-        assert_eq!(salsa::Lookup::<Name>::into_owned(lookup), name);
-    }
 
     #[test]
     fn empty_vec() {

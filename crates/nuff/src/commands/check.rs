@@ -13,9 +13,9 @@ use nuff_python_ast::{SourceType, TomlSourceType};
 use rayon::prelude::*;
 use rustc_hash::FxHashMap;
 
-use nuff_db::diagnostic::Diagnostic;
-use nuff_db::panic::catch_unwind;
+use nuff_linter::diagnostic::Diagnostic;
 use nuff_linter::package::PackageRoot;
+use nuff_linter::panic::catch_unwind;
 use nuff_linter::registry::Rule;
 use nuff_linter::settings::types::UnsafeFixes;
 use nuff_linter::settings::{LinterSettings, flags};
@@ -224,7 +224,7 @@ mod test {
     use rustc_hash::FxHashMap;
     use tempfile::TempDir;
 
-    use nuff_db::diagnostic::{DiagnosticFormat, DisplayDiagnosticConfig, DisplayDiagnostics};
+    use nuff_linter::diagnostic::{DiagnosticFormat, DisplayDiagnosticConfig, DisplayDiagnostics};
     use nuff_linter::message::EmitterContext;
     use nuff_linter::registry::Rule;
     use nuff_linter::settings::types::UnsafeFixes;

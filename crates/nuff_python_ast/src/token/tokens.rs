@@ -7,7 +7,6 @@ use rustc_hash::FxHashSet;
 
 /// Tokens represents a vector of lexed [`Token`].
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "get-size", derive(get_size2::GetSize))]
 pub struct Tokens {
     raw: Vec<Token>,
 }

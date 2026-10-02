@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use itertools::Itertools;
 use rustc_hash::FxHashSet;
 
-use nuff_db::diagnostic::Diagnostic;
+use crate::diagnostic::Diagnostic;
 use nuff_diagnostics::{IsolationLevel, SourceMap};
 use nuff_text_size::{Ranged, TextLen, TextRange, TextSize};
 
@@ -152,11 +152,11 @@ mod tests {
     use nuff_source_file::SourceFileBuilder;
     use nuff_text_size::{Ranged, TextSize};
 
+    use crate::diagnostic::Diagnostic;
     use crate::fix::{FixResult, apply_fixes};
     use crate::rules::pyflakes::rules::BreakOutsideLoop;
     use crate::{Edit, Fix};
     use crate::{Locator, Violation};
-    use nuff_db::diagnostic::Diagnostic;
 
     fn create_diagnostics(
         filename: &str,

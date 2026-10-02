@@ -15,12 +15,10 @@ char_str = { version = "0.0.4", default-features = false, features = ["std"] }
 nuff_annotate_snippets = { path = "crates/nuff_annotate_snippets" }
 nuff_cache = { path = "crates/nuff_cache" }
 nuff_command_line = { path = "crates/nuff_command_line" }
-nuff_db = { path = "crates/nuff_db", default-features = false }
 nuff_diagnostics = { path = "crates/nuff_diagnostics" }
 nuff_index = { path = "crates/nuff_index" }
 nuff_linter = { path = "crates/nuff_linter" }
 nuff_macros = { path = "crates/nuff_macros" }
-nuff_memory_usage = { path = "crates/nuff_memory_usage" }
 nuff_notebook = { path = "crates/nuff_notebook" }
 nuff_options_metadata = { path = "crates/nuff_options_metadata" }
 nuff_python_ast = { path = "crates/nuff_python_ast" }
@@ -34,25 +32,20 @@ nuff_python_semantic = { path = "crates/nuff_python_semantic" }
 nuff_python_stdlib = { path = "crates/nuff_python_stdlib" }
 nuff_python_trivia = { path = "crates/nuff_python_trivia" }
 nuff_source_file = { path = "crates/nuff_source_file" }
-nuff_ranged_value = { path = "crates/nuff_ranged_value" }
 nuff_text_size = { path = "crates/nuff_text_size" }
 nuff_workspace = { path = "crates/nuff_workspace" }
-
-nuff_static = { path = "crates/nuff_static" }
 
 aho-corasick = { version = "1.1.3", default-features = false, features = ["perf-literal", "std"] }
 arrayvec = { version = "0.7.6", default-features = false }
 anstream = { version = "1.0.0", default-features = false, features = ["auto", "wincon"] }
 anstyle = { version = "1.0.10", default-features = false, features = ["std"] }
 anyhow = { version = "1.0.80", default-features = false, features = ["std"] }
-arc-swap = { version = "1.7.1", default-features = false }
 argfile = { version = "1.0.0", default-features = false }
 assert_fs = { version = "1.1.0", default-features = false }
 rkyv = { version = "0.8.16", default-features = false, features = ["bytecheck", "std"] }
 bitflags = { version = "2.5.0", default-features = false }
 bstr = { version = "1.9.1", default-features = false, features = ["std"] }
 cachedir = { version = "0.3.1", default-features = false }
-camino = { version = "1.1.7", default-features = false }
 clap = { version = "4.5.3", default-features = false, features = [
     "color",
     "derive",
@@ -62,28 +55,13 @@ clap = { version = "4.5.3", default-features = false, features = [
     "suggestions",
     "usage",
 ] }
-clap_complete_command = { version = "0.6.0", default-features = false, features = ["nushell"] }
-clearscreen = { version = "4.0.0", default-features = false }
 colored = { version = "3.0.0", default-features = false }
 compact_str = { version = "0.10.0", default-features = false, features = ["std"] }
-countme = { version = "3.0.1", default-features = false }
-crossbeam = { version = "0.8.4", default-features = false, features = ["std"] }
-dashmap = { version = "6.0.1", default-features = false }
 datatest-stable = { version = "0.3.3", default-features = false }
 drop_bomb = { version = "0.1.5", default-features = false }
-dunce = { version = "1.0.5", default-features = false }
 etcetera = { version = "0.11.0", default-features = false }
 fern = { version = "0.7.0", default-features = false }
 filetime = { version = "0.2.23", default-features = false }
-get-size2 = { version = "0.11.0", default-features = false, features = [
-    "compact-str",
-    "derive",
-    "hashbrown",
-    "ordermap",
-    "smallvec",
-    "std",
-    "thin-vec",
-] }
 glob = { version = "0.3.1", default-features = false }
 globset = { version = "0.4.14", default-features = false, features = ["log"] }
 globwalk = { version = "0.9.1", default-features = false }
@@ -95,9 +73,7 @@ icu_properties = { version = "2.1.2", default-features = false, features = ["com
 ignore = { version = "0.4.30", default-features = false }
 imperative = { version = "1.0.4", default-features = false }
 indexmap = { version = "2.6.0", default-features = false, features = ["std"] }
-indoc = { version = "2.0.4", default-features = false }
 insta = { version = "1.35.1", default-features = false, features = ["colors"] }
-insta-cmd = { version = "0.7.0", default-features = false }
 is-macro = { version = "0.3.5", default-features = false }
 itertools = { version = "0.15.0", default-features = false, features = ["use_std"] }
 jiff = { version = "0.2.0", default-features = false, features = [
@@ -109,21 +85,14 @@ jiff = { version = "0.2.0", default-features = false, features = [
     "tzdb-concatenated",
     "tzdb-zoneinfo",
 ] }
-jod-thread = { version = "1.0.0", default-features = false }
-libc = { version = "0.2.153", default-features = false, features = ["std"] }
 libcst = { version = "1.9.0", default-features = false }
 log = { version = "0.4.17", default-features = false }
-lsp-server = { version = "0.10.0", default-features = false }
-lsp-types = { package = "gen-lsp-types", version = "0.11.0", default-features = false, features = ["url"] }
 matchit = { version = "0.9.0", default-features = false }
 memchr = { version = "2.7.1", default-features = false, features = ["std"] }
 # mimalloc v3.3.2 crashes on Windows CPUs that do not support POPCNT.
 # Fixed in mimalloc v3.4.0: https://github.com/microsoft/mimalloc/issues/1291
 # Keep v2 until an updated Rust crate includes the fix.
-mimalloc = { version = "0.1.52", default-features = false, features = ["v2"] }
 natord = { version = "1.0.9", default-features = false }
-notify = { version = "8.0.0", default-features = false, features = ["macos_fsevent"] }
-ordermap = { version = "1.0.0", default-features = false, features = ["std"] }
 path-absolutize = { version = "4.0.0", default-features = false }
 path-slash = { version = "0.2.1", default-features = false }
 pathdiff = { version = "0.2.1", default-features = false }
@@ -135,17 +104,7 @@ quote = { version = "1.0.23", default-features = false, features = ["proc-macro"
 rand = { version = "0.10.0", default-features = false, features = ["std_rng"] }
 rayon = { version = "1.10.0", default-features = false }
 regex = { version = "1.10.2", default-features = false, features = ["perf", "std", "unicode"] }
-regex-syntax = { version = "0.8.8", default-features = false }
 rustc-hash = { version = "2.0.0", default-features = false, features = ["std"] }
-# When updating salsa, make sure to also update the version in `fuzz/Cargo.toml`
-salsa = { version = "0.28.5", default-features = false, features = [
-    "compact_str",
-    "macros",
-    "salsa_unstable",
-    "inventory",
-] }
-same-file = { version = "1.0.6", default-features = false }
-schemars = { version = "1.0.4", default-features = false, features = ["derive", "std"] }
 seahash = { version = "4.1.0", default-features = false }
 serde = { version = "1.0.197", default-features = false, features = ["derive", "std"] }
 serde_json = { version = "1.0.113", default-features = false, features = ["std"] }
@@ -179,13 +138,6 @@ thin-vec = { version = "0.2.14", default-features = false, features = ["std"] }
 tikv-jemallocator = { version = "0.6.0", default-features = false, features = ["background_threads_runtime_support"] }
 toml = { version = "1.0.0", default-features = false, features = ["display", "parse", "serde", "std"] }
 tracing = { version = "0.1.40", default-features = false, features = ["attributes", "std"] }
-tracing-log = { version = "0.2.0", default-features = false, features = ["log-tracer", "std"] }
-tracing-subscriber = { version = "0.3.18", default-features = false, features = [
-    "env-filter",
-    "fmt",
-    "ansi",
-    "smallvec",
-] }
 typed-arena = { version = "2.0.2", default-features = false, features = ["std"] }
 unicode-ident = { version = "1.0.12", default-features = false }
 unicode-normalization = { version = "0.1.23", default-features = false, features = ["std"] }
@@ -194,9 +146,7 @@ unicode_names2 = { version = "1.2.2", default-features = false }
 url = { version = "2.5.0", default-features = false, features = ["std"] }
 uuid = { version = "1.6.1", default-features = false, features = ["std"] }
 walkdir = { version = "2.3.2", default-features = false }
-which = { version = "8.0.0", default-features = false, features = ["real-sys"] }
 wild = { version = "2", default-features = false }
-zip = { version = "8.0", default-features = false }
 
 [workspace.lints.rust]
 unsafe_code = "warn"
@@ -265,8 +215,6 @@ codegen-units = 16
 codegen-units = 1
 [profile.release.package.nuff_python_ast]
 codegen-units = 1
-[profile.release.package.salsa]
-codegen-units = 1
 
 [profile.dev]
 opt-level = 1
@@ -280,5 +228,3 @@ opt-level = 3
 [profile.dev.package.similar]
 opt-level = 3
 
-[profile.dev.package.salsa]
-opt-level = 3

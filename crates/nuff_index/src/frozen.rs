@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
 /// A structurally immutable sequence of `T` indexed by `I`.
-#[derive(Clone, PartialEq, Eq, Hash, get_size2::GetSize)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct FrozenIndexVec<I, T> {
     raw: Box<[T]>,
     index: PhantomData<I>,
@@ -73,8 +73,3 @@ impl<I: Idx, T> FromIterator<T> for FrozenIndexVec<I, T> {
 // not the phantom data.
 #[expect(unsafe_code)]
 unsafe impl<I: Idx, T> Send for FrozenIndexVec<I, T> where T: Send {}
-
-// SAFETY: `FrozenIndexVec` owns its elements; `I` is only a marker.
-#[expect(unsafe_code)]
-#[cfg(feature = "salsa")]
-unsafe impl<I, T: salsa::SalsaValue> salsa::SalsaValue for FrozenIndexVec<I, T> {}
