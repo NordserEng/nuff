@@ -2284,6 +2284,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "nuff"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "colored",
+ "mimalloc",
+ "ruff",
+ "ruff_command_line",
+ "tikv-jemallocator",
+ "wild",
+]
+
+[[package]]
 name = "num-traits"
 version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
