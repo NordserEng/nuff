@@ -25,7 +25,6 @@ nuff_macros = { workspace = true }
 nuff_notebook = { workspace = true }
 nuff_options_metadata = { workspace = true, features = ["serde"] }
 nuff_python_ast = { workspace = true }
-nuff_python_parser = { workspace = true }
 nuff_source_file = { workspace = true }
 nuff_text_size = { workspace = true }
 nuff_workspace = { workspace = true }
@@ -37,12 +36,8 @@ cachedir = { workspace = true }
 clap = { workspace = true, features = ["derive", "env", "wrap_help"] }
 colored = { workspace = true }
 filetime = { workspace = true }
-globwalk = { workspace = true }
 ignore = { workspace = true }
-indexmap = { workspace = true }
-is-macro = { workspace = true }
 itertools = { workspace = true }
-jiff = { workspace = true }
 log = { workspace = true }
 path-absolutize = { workspace = true, features = ["fixed_workdir"] }
 rayon = { workspace = true }
@@ -51,19 +46,14 @@ rustc-hash = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 shellexpand = { workspace = true }
-strum = { workspace = true, features = [] }
 tempfile = { workspace = true }
-thiserror = { workspace = true }
 toml = { workspace = true }
-tracing = { workspace = true, features = ["log"] }
-walkdir = { workspace = true }
 wild = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 tikv-jemallocator = { workspace = true }
 
 [dev-dependencies]
-assert_fs = { workspace = true }
 colored = { workspace = true, features = ["no-color"] }
 insta = { workspace = true, features = ["filters", "json"] }
 test-case = { workspace = true }

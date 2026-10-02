@@ -29,17 +29,9 @@ unicode-normalization = { workspace = true }
 unicode_names2 = { workspace = true }
 
 [dev-dependencies]
-nuff_annotate_snippets = { workspace = true }
 nuff_python_ast = { workspace = true, features = ["serde"] }
-nuff_source_file = { workspace = true }
 
-anyhow = { workspace = true }
-datatest-stable = { workspace = true }
 insta = { workspace = true }
-itertools = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-walkdir = { workspace = true }
 
 [lints]
 workspace = true

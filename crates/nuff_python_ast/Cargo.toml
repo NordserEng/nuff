@@ -30,7 +30,6 @@ is-macro = { workspace = true }
 memchr = { workspace = true }
 rustc-hash = { workspace = true }
 serde = { workspace = true, optional = true }
-serde_json = { workspace = true, optional = true }
 thiserror = { workspace = true }
 thin-vec = { workspace = true }
 

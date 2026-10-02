@@ -23,7 +23,6 @@ nuff_notebook = { path = "crates/nuff_notebook" }
 nuff_options_metadata = { path = "crates/nuff_options_metadata" }
 nuff_python_ast = { path = "crates/nuff_python_ast" }
 nuff_python_codegen = { path = "crates/nuff_python_codegen" }
-nuff_python_edits = { path = "crates/nuff_python_edits" }
 nuff_python_importer = { path = "crates/nuff_python_importer" }
 nuff_python_index = { path = "crates/nuff_python_index" }
 nuff_python_literal = { path = "crates/nuff_python_literal" }
@@ -41,7 +40,6 @@ anstream = { version = "1.0.0", default-features = false, features = ["auto", "w
 anstyle = { version = "1.0.10", default-features = false, features = ["std"] }
 anyhow = { version = "1.0.80", default-features = false, features = ["std"] }
 argfile = { version = "1.0.0", default-features = false }
-assert_fs = { version = "1.1.0", default-features = false }
 rkyv = { version = "0.8.16", default-features = false, features = ["bytecheck", "std"] }
 bitflags = { version = "2.5.0", default-features = false }
 bstr = { version = "1.9.1", default-features = false, features = ["std"] }
@@ -57,21 +55,18 @@ clap = { version = "4.5.3", default-features = false, features = [
 ] }
 colored = { version = "3.0.0", default-features = false }
 compact_str = { version = "0.10.0", default-features = false, features = ["std"] }
-datatest-stable = { version = "0.3.3", default-features = false }
 drop_bomb = { version = "0.1.5", default-features = false }
 etcetera = { version = "0.11.0", default-features = false }
 fern = { version = "0.7.0", default-features = false }
 filetime = { version = "0.2.23", default-features = false }
 glob = { version = "0.3.1", default-features = false }
 globset = { version = "0.4.14", default-features = false, features = ["log"] }
-globwalk = { version = "0.9.1", default-features = false }
 hashbrown = { version = "0.17.0", default-features = false, features = [
     "inline-more",
 ] }
 heck = { version = "0.5.0", default-features = false }
 icu_properties = { version = "2.1.2", default-features = false, features = ["compiled_data"] }
 ignore = { version = "0.4.30", default-features = false }
-imperative = { version = "1.0.4", default-features = false }
 indexmap = { version = "2.6.0", default-features = false, features = ["std"] }
 insta = { version = "1.35.1", default-features = false, features = ["colors"] }
 is-macro = { version = "0.3.5", default-features = false }
@@ -92,13 +87,11 @@ memchr = { version = "2.7.1", default-features = false, features = ["std"] }
 # mimalloc v3.3.2 crashes on Windows CPUs that do not support POPCNT.
 # Fixed in mimalloc v3.4.0: https://github.com/microsoft/mimalloc/issues/1291
 # Keep v2 until an updated Rust crate includes the fix.
-natord = { version = "1.0.9", default-features = false }
 path-absolutize = { version = "4.0.0", default-features = false }
 path-slash = { version = "0.2.1", default-features = false }
 pathdiff = { version = "0.2.1", default-features = false }
 pep440_rs = { version = "0.7.1", default-features = false }
 proc-macro2 = { version = "1.0.79", default-features = false, features = ["proc-macro"] }
-pyproject-toml = { version = "0.13.4", default-features = false }
 quick-junit = { version = "0.6.0", default-features = false }
 quote = { version = "1.0.23", default-features = false, features = ["proc-macro"] }
 rand = { version = "0.10.0", default-features = false, features = ["std_rng"] }
@@ -137,7 +130,6 @@ thiserror = { version = "2.0.0", default-features = false, features = ["std"] }
 thin-vec = { version = "0.2.14", default-features = false, features = ["std"] }
 tikv-jemallocator = { version = "0.6.0", default-features = false, features = ["background_threads_runtime_support"] }
 toml = { version = "1.0.0", default-features = false, features = ["display", "parse", "serde", "std"] }
-tracing = { version = "0.1.40", default-features = false, features = ["attributes", "std"] }
 typed-arena = { version = "2.0.2", default-features = false, features = ["std"] }
 unicode-ident = { version = "1.0.12", default-features = false }
 unicode-normalization = { version = "0.1.23", default-features = false, features = ["std"] }
@@ -145,7 +137,6 @@ unicode-width = { version = "0.2.0", default-features = false }
 unicode_names2 = { version = "1.2.2", default-features = false }
 url = { version = "2.5.0", default-features = false, features = ["std"] }
 uuid = { version = "1.6.1", default-features = false, features = ["std"] }
-walkdir = { version = "2.3.2", default-features = false }
 wild = { version = "2", default-features = false }
 
 [workspace.lints.rust]
