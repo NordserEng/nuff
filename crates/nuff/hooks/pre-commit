@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "$(git branch --show-current)" == "main" ]]; then
+  echo "Commit blocked: create a branch and open a pull request; main accepts merges only." >&2
+  exit 1
+fi
+
+marker="$(git rev-parse --git-path nuff-gate-verified)"
+if [[ ! -f "$marker" ]] || [[ "$(<"$marker")" != "$(git write-tree)" ]]; then
+  echo "Commit blocked: stage the complete change, then run crates/nuff/gate." >&2
+  exit 1
+fi

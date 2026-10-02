@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+#
+# Verifies the staged tree so the commit hook lets it through. The fork runs no CI; this is what keeps
+# main releasable.
+#
+#   crates/nuff/gate           check the staged tree
+#   crates/nuff/gate install   point this checkout's git hooks at crates/nuff/hooks
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+if [[ "${1:-}" == install ]]; then
+  git config core.hooksPath crates/nuff/hooks
+  echo "nuff gate installed. Before every commit: git add -A && crates/nuff/gate"
+  exit 0
+fi
+
+if ! git diff --quiet || [[ -n "$(git ls-files --others --exclude-standard)" ]]; then
+  echo "Stage every intended change first: the gate checks the working tree as the staged tree." >&2
+  exit 1
+fi
+
+started=$SECONDS
+cargo fmt --all --check
+cargo clippy --quiet --no-deps -p nuff -p ruff_linter -p ruff_workspace --all-targets -- -D warnings
+log="$(mktemp)"
+if ! cargo test --quiet -p ruff_linter -p ruff_workspace -p ruff >"$log" 2>&1; then
+  tail -80 "$log" >&2
+  exit 1
+fi
+if ! cargo dev generate-all --mode check >"$log" 2>&1; then
+  tail -40 "$log" >&2
+  exit 1
+fi
+
+git write-tree > "$(git rev-parse --git-path nuff-gate-verified)"
+echo "Verified in $((SECONDS - started))s. Commit will be marked CI-Verified."

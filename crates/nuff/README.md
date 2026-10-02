@@ -3,6 +3,14 @@
 Nordser's ruff: the upstream `ruff` CLI, built as its own binary so Nordser's house rules can ship
 without waiting on upstream. It reads the same `[tool.ruff]` configuration.
 
+## Committing
+
+The fork runs no CI, so a local gate keeps `main` releasable. Install it once per checkout with
+`crates/nuff/gate install`. Before every commit, stage the complete change and run `crates/nuff/gate`. It
+checks formatting, clippy, the tests of `ruff_linter`, `ruff_workspace` and the `ruff` CLI, and that the
+schema and docs are current, in about 10–30 s against the incremental build. The hook refuses an
+unverified staged tree and any commit on `main`, and stamps a verified commit `CI-Verified: nuff-gate`.
+
 ## Releasing
 
 A release builds and publishes from an Apple Silicon Mac, so it costs no CI minutes. The fork runs no
