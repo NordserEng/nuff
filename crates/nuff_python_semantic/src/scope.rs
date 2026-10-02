@@ -208,8 +208,8 @@ pub enum ScopeKind<'a> {
     /// closure is only added if the name `super` (has to be a name -- `builtins.super`
     /// and similar don't count!) or the name `__class__` is used in any method of the
     /// class. However, accurately emulating that would be both complex and probably
-    /// quite expensive unless we moved to a double-traversal of each scope similar to
-    /// ty. It would also only matter in extreme and unlikely edge cases. So we ignore
+    /// quite expensive unless we moved to a double-traversal of each scope. It would also
+    /// only matter in extreme and unlikely edge cases. So we ignore
     /// that subtlety for now.
     ///
     /// See <https://docs.python.org/3/reference/datamodel.html#creating-the-class-object>.

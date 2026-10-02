@@ -40,9 +40,7 @@ mod rdjson;
 /// The lifetime parameter, `'a`, refers to the shorter of:
 ///
 /// * The lifetime of the rendering configuration.
-/// * The lifetime of the resolver used to load the contents of `Span`
-///   values. When using Salsa, this most commonly corresponds to the lifetime
-///   of a Salsa `Db`.
+/// * The lifetime of the resolver used to load the contents of `Span` values.
 /// * The lifetime of the diagnostic being rendered.
 pub struct DisplayDiagnostic<'a> {
     config: &'a DisplayDiagnosticConfig,

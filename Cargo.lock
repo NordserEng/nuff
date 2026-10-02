@@ -1300,16 +1300,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nuff_python_edits"
-version = "0.2.0"
-dependencies = [
- "nuff_python_ast",
- "nuff_python_parser",
- "nuff_source_file",
- "nuff_text_size",
-]
-
-[[package]]
 name = "nuff_python_importer"
 version = "0.2.0"
 dependencies = [

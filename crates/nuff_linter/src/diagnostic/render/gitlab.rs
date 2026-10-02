@@ -35,12 +35,6 @@ impl GitlabRenderer<'_> {
                 diagnostics,
                 resolver: self.resolver,
                 config: self.config,
-                #[expect(
-                    clippy::disallowed_methods,
-                    reason = "We don't have access to a `System` here, \
-                              and this is only intended for use by GitLab CI, \
-                              which runs on a real `System`."
-                )]
                 project_dir: std::env::var("CI_PROJECT_DIR").ok().as_deref(),
             })
             .unwrap()
