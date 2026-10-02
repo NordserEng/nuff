@@ -43,6 +43,7 @@ pub mod flake8_use_pathlib;
 pub mod flynt;
 pub mod isort;
 pub mod mccabe;
+pub mod nuff;
 pub mod numpy;
 pub mod pandas_vet;
 pub mod pep8_naming;

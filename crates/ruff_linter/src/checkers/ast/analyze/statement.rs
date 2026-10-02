@@ -10,7 +10,7 @@ use crate::rules::{
     airflow, fastapi, flake8_async, flake8_bandit, flake8_boolean_trap, flake8_bugbear,
     flake8_builtins, flake8_debugger, flake8_django, flake8_errmsg, flake8_import_conventions,
     flake8_pie, flake8_pyi, flake8_pytest_style, flake8_raise, flake8_return, flake8_simplify,
-    flake8_slots, flake8_tidy_imports, flake8_type_checking, mccabe, pandas_vet, pep8_naming,
+    flake8_slots, flake8_tidy_imports, flake8_type_checking, mccabe, nuff, pandas_vet, pep8_naming,
     perflint, pycodestyle, pyflakes, pygrep_hooks, pylint, pyupgrade, refurb, ruff, tryceratops,
 };
 use ruff_python_ast::PythonVersion;
@@ -69,6 +69,12 @@ pub(crate) fn statement(stmt: &Stmt, checker: &mut Checker) {
             }
             if checker.is_rule_enabled(Rule::FastApiRedundantResponseModel) {
                 fastapi::rules::fastapi_redundant_response_model(checker, function_def);
+            }
+            if checker.is_rule_enabled(Rule::RouteReturnsDict) {
+                nuff::rules::route_returns_dict(checker, function_def);
+            }
+            if checker.is_rule_enabled(Rule::ExternalCallInTransaction) {
+                nuff::rules::external_call_in_transaction(checker, function_def);
             }
             if checker.is_rule_enabled(Rule::FastApiNonAnnotatedDependency) {
                 fastapi::rules::fastapi_non_annotated_dependency(checker, function_def);

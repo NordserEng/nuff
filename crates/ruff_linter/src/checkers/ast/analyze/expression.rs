@@ -16,8 +16,8 @@ use crate::rules::{
     flake8_builtins, flake8_comprehensions, flake8_datetimez, flake8_debugger, flake8_django,
     flake8_future_annotations, flake8_gettext, flake8_implicit_str_concat, flake8_logging,
     flake8_logging_format, flake8_pie, flake8_print, flake8_pyi, flake8_pytest_style, flake8_self,
-    flake8_simplify, flake8_tidy_imports, flake8_type_checking, flake8_use_pathlib, flynt, numpy,
-    pandas_vet, pep8_naming, pycodestyle, pyflakes, pylint, pyupgrade, refurb, ruff,
+    flake8_simplify, flake8_tidy_imports, flake8_type_checking, flake8_use_pathlib, flynt, nuff,
+    numpy, pandas_vet, pep8_naming, pycodestyle, pyflakes, pylint, pyupgrade, refurb, ruff,
 };
 use ruff_python_ast::PythonVersion;
 
@@ -726,6 +726,12 @@ pub(crate) fn expression(expr: &Expr, checker: &Checker) {
             }
             if checker.is_rule_enabled(Rule::BlockingSleepInAsyncFunction) {
                 flake8_async::rules::blocking_sleep(checker, call);
+            }
+            if checker.is_rule_enabled(Rule::BlockingCallOutsideThread) {
+                nuff::rules::blocking_call_outside_thread(checker, call);
+            }
+            if checker.is_rule_enabled(Rule::ForeignKeyModelNotImported) {
+                nuff::rules::foreign_key_model_not_imported(checker, call);
             }
             if checker.is_rule_enabled(Rule::LongSleepNotForever) {
                 flake8_async::rules::long_sleep_not_forever(checker, call);

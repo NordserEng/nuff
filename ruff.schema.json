@@ -551,6 +551,18 @@
         "type": "string"
       }
     },
+    "nuff": {
+      "description": "Options for the `nuff` house rules.",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/NuffOptions"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "deprecated": true
+    },
     "output-format": {
       "description": "The style in which violation messages should be formatted: `\"full\"` (default)\n(shows source), `\"concise\"`, `\"grouped\"` (group messages by file), `\"json\"`\n(machine-readable), `\"junit\"` (machine-readable XML), `\"github\"` (GitHub\nActions annotations), `\"gitlab\"` (GitLab CI code quality report),\n`\"pylint\"` (Pylint text format) or `\"azure\"` (Azure Pipeline logging commands).",
       "anyOf": [
@@ -2510,6 +2522,17 @@
             }
           ]
         },
+        "nuff": {
+          "description": "Options for the `nuff` house rules.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/NuffOptions"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "pep8-naming": {
           "description": "Options for the `pep8-naming` plugin.",
           "anyOf": [
@@ -2697,6 +2720,43 @@
         "alternating",
         "preferred"
       ]
+    },
+    "NuffOptions": {
+      "description": "Options for the `nuff` house rules.",
+      "type": "object",
+      "properties": {
+        "blocking-functions": {
+          "description": "Fully qualified names of synchronous functions that block, which an `async` function may\nreach only through `asyncio.to_thread` (`NUF001`).",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "external-functions": {
+          "description": "Fully qualified names of functions that call an outside service, which no function may\ncall while its session's transaction is open (`NUF005`).",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "foreign-key-modules": {
+          "description": "The module that defines each table, by table name. A module whose `ForeignKey` names a\ntable must import the module that defines it (`NUF004`).",
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
     },
     "OutputFormat": {
       "type": "string",
@@ -3745,6 +3805,14 @@
         "NPY2",
         "NPY20",
         "NPY201",
+        "NUF",
+        "NUF0",
+        "NUF00",
+        "NUF001",
+        "NUF002",
+        "NUF003",
+        "NUF004",
+        "NUF005",
         "PD",
         "PD0",
         "PD00",
@@ -4602,6 +4670,7 @@
         "airflow3-suggested-to-move-to-provider",
         "airflow3-suggested-update",
         "airflow31-moved",
+        "alembic-downgrade",
         "ambiguous-class-name",
         "ambiguous-function-name",
         "ambiguous-unicode-character-comment",
@@ -4661,6 +4730,7 @@
         "blanket-noqa",
         "blanket-type-ignore",
         "blind-except",
+        "blocking-call-outside-thread",
         "blocking-http-call-httpx-in-async-function",
         "blocking-http-call-in-async-function",
         "blocking-input-in-async-function",
@@ -4792,6 +4862,7 @@
         "expr-or-not-expr",
         "expr-or-true",
         "expressions-in-star-assignment",
+        "external-call-in-transaction",
         "extraneous-parentheses",
         "f-string",
         "f-string-docstring",
@@ -4810,6 +4881,7 @@
         "float-equality-comparison",
         "for-loop-set-mutations",
         "for-loop-writes",
+        "foreign-key-model-not-imported",
         "format-in-get-text-func-call",
         "format-literals",
         "formatting",
@@ -5243,6 +5315,7 @@
         "return-outside-function",
         "reuse-of-groupby-generator",
         "root-logger-call",
+        "route-returns-dict",
         "rule-codes-in-selectors",
         "rule-codes-in-suppression-comments",
         "run-process-in-async-function",

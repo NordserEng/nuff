@@ -1,0 +1,10 @@
+---
+source: crates/ruff_linter/src/rules/nuff/mod.rs
+---
+NUF004 Foreign key to `period_locks`, which `foreign-key-modules` does not list
+  --> models.py:13:56
+   |
+11 |     company_id: Mapped[int] = mapped_column(sa.ForeignKey("companies.id"))
+12 |     charge_id: Mapped[int] = mapped_column(sa.ForeignKey("public.charges.id"))
+13 |     lock_id: Mapped[int] = mapped_column(sa.ForeignKey("period_locks.id"))  # NUF004 unlisted
+   |                                                        ^^^^^^^^^^^^^^^^^

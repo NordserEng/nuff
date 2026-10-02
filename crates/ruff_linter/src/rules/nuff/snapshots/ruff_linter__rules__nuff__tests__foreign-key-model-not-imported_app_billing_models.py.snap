@@ -1,0 +1,21 @@
+---
+source: crates/ruff_linter/src/rules/nuff/mod.rs
+---
+NUF004 Foreign key to `companies` without importing `app.accounts.models`
+  --> models.py:9:56
+   |
+ 7 | class Charge(Base):
+ 8 |     __tablename__ = "charges"
+ 9 |     company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"))  # NUF004
+   |                                                        ^^^^^^^^^^^^^^
+10 |     receipt_id: Mapped[int] = mapped_column(ForeignKey("receipts.id"))
+11 |     agreement_id: Mapped[int] = mapped_column(ForeignKey("agreements.id"))  # NUF004 unlisted
+   |
+
+NUF004 Foreign key to `agreements`, which `foreign-key-modules` does not list
+  --> models.py:11:58
+   |
+ 9 |     company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"))  # NUF004
+10 |     receipt_id: Mapped[int] = mapped_column(ForeignKey("receipts.id"))
+11 |     agreement_id: Mapped[int] = mapped_column(ForeignKey("agreements.id"))  # NUF004 unlisted
+   |                                                          ^^^^^^^^^^^^^^^

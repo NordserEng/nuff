@@ -1,6 +1,6 @@
 [package]
 name = "nuff"
-version = "0.1.0"
+version = "0.2.0"
 description = "Nordser's ruff: upstream ruff plus Nordser's house rules"
 publish = false
 authors = { workspace = true }

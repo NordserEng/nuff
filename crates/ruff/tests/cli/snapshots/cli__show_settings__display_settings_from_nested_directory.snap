@@ -304,6 +304,9 @@ linter.flake8_self.ignore_names = [
 	_name_,
 	_value_,
 ]
+linter.nuff.blocking_functions = []
+linter.nuff.external_functions = []
+linter.nuff.foreign_key_modules = {}
 linter.flake8_tidy_imports.ban_relative_imports = "parents"
 linter.flake8_tidy_imports.banned_api = {}
 linter.flake8_tidy_imports.banned_module_level_imports = []
