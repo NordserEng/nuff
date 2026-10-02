@@ -51,7 +51,7 @@ pub mod toml;
 pub mod upstream_categories;
 mod violation;
 
-#[cfg(any(test, fuzzing, feature = "testing"))]
+#[cfg(any(test, feature = "testing"))]
 pub mod test;
 
 pub const RUFF_PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
