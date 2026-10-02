@@ -7,14 +7,13 @@ use libcst_native::{
     Codegen, CodegenState, Expression, Import, ImportFrom, ImportNames, LazyImport, LazyImportFrom,
     NameOrAttribute, ParenthesizableWhitespace, SmallStatement, Statement,
 };
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::FxHashMap;
 use smallvec::{SmallVec, smallvec};
 use unicode_normalization::UnicodeNormalization;
 
 use ruff_python_ast::Stmt;
 use ruff_python_ast::name::UnqualifiedName;
 use ruff_python_codegen::Stylist;
-use ruff_text_size::Ranged;
 
 use crate::Locator;
 use crate::cst::matchers::match_statement;
@@ -126,69 +125,6 @@ pub(crate) fn remove_imports<'a>(
     }
 
     Ok(Some(tree.codegen_stylist(stylist)))
-}
-
-/// Given an import statement, remove any imports that are not specified in the `imports` slice.
-///
-/// Returns the modified import statement.
-pub(crate) fn retain_imports(
-    member_names: &[&str],
-    stmt: &Stmt,
-    contents: &str,
-    stylist: &Stylist,
-) -> Result<String> {
-    let module_text = &contents[stmt.range()];
-    let mut tree = match_statement(module_text)?;
-
-    let Statement::Simple(body) = &mut tree else {
-        bail!("Expected Statement::Simple");
-    };
-
-    let aliases = match body.body.first_mut() {
-        Some(
-            SmallStatement::Import(Import { names, .. })
-            | SmallStatement::LazyImport(LazyImport { names, .. }),
-        ) => names,
-        Some(
-            SmallStatement::ImportFrom(ImportFrom { names, .. })
-            | SmallStatement::LazyImportFrom(LazyImportFrom { names, .. }),
-        ) => {
-            if let ImportNames::Aliases(aliases) = names {
-                aliases
-            } else {
-                bail!("Expected: ImportNames::Aliases");
-            }
-        }
-        _ => bail!("Expected import statement"),
-    };
-
-    // Preserve the trailing comma (or not) from the last entry.
-    let trailing_comma = aliases.last().and_then(|alias| alias.comma.clone());
-
-    // Retain any imports that are specified in the `imports` iterator.
-    let member_names = member_names.iter().copied().collect::<FxHashSet<_>>();
-    aliases.retain(|alias| {
-        member_names.contains(qualified_name_from_name_or_attribute(&alias.name).as_str())
-    });
-
-    // But avoid destroying any trailing comments.
-    if let Some(alias) = aliases.last_mut() {
-        let has_comment = if let Some(comma) = &alias.comma {
-            match &comma.whitespace_after {
-                ParenthesizableWhitespace::SimpleWhitespace(_) => false,
-                ParenthesizableWhitespace::ParenthesizedWhitespace(whitespace) => {
-                    whitespace.first_line.comment.is_some()
-                }
-            }
-        } else {
-            false
-        };
-        if !has_comment {
-            alias.comma = trailing_comma;
-        }
-    }
-
-    Ok(tree.codegen_stylist(stylist))
 }
 
 /// Create an NFKC-normalized qualified name from a libCST node.

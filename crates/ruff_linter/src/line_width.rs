@@ -5,39 +5,9 @@ use std::num::{NonZeroU8, NonZeroU16, ParseIntError};
 use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
-use unicode_width::UnicodeWidthChar;
 
 use ruff_cache::{CacheKey, CacheKeyHasher};
 use ruff_macros::CacheKey;
-use ruff_python_trivia::{find_trailing_pragma_offset, is_pragma_comment, tab_offset};
-
-use crate::preview::{
-    is_pragma_excluded_from_import_width_enabled, is_trailing_pragma_in_line_length_enabled,
-};
-use crate::settings::types::PreviewMode;
-
-/// Returns the offset within `comment` at which the pragma comment excluded from line-length
-/// measurement begins, or `None` if the comment contains no such pragma.
-///
-/// This is the shared policy for how pragma comments (e.g., `# noqa: F401` or `# type: ignore`)
-/// are excluded when measuring line width, used by `line-too-long` (E501) and
-/// `doc-line-too-long` (W505), and, in preview mode, by isort's (I001) decision of whether an
-/// import fits on one line (see [`LineWidthBuilder::add_comment`]). The formatter applies the
-/// equivalent policy when measuring comment widths.
-///
-/// In stable mode, only comments that are pragmas in their entirety are excluded (the returned
-/// offset is `0`). In preview mode, a trailing pragma within a mixed comment (e.g.,
-/// `# explanation  # noqa: F401`) is also excluded, in which case the offset points at the `#`
-/// that begins the pragma.
-pub(crate) fn pragma_offset_for_line_length(comment: &str, preview: PreviewMode) -> Option<usize> {
-    if is_trailing_pragma_in_line_length_enabled(preview) {
-        find_trailing_pragma_offset(comment)
-    } else if is_pragma_comment(comment) {
-        Some(0)
-    } else {
-        None
-    }
-}
 
 /// The length of a line of text that is considered too long.
 ///
@@ -165,165 +135,12 @@ impl From<LineLength> for NonZeroU16 {
     }
 }
 
-/// A measure of the width of a line of text.
-///
-/// This is used to determine if a line is too long.
-/// It should be compared to a [`LineLength`].
-#[derive(Clone, Copy, Debug)]
-pub struct LineWidthBuilder {
-    /// The width of the line.
-    width: usize,
-    /// The column of the line.
-    /// This is used to calculate the width of tabs.
-    column: usize,
-    /// The tab size to use when calculating the width of tabs.
-    tab_size: IndentWidth,
-}
-
-impl Default for LineWidthBuilder {
-    fn default() -> Self {
-        Self::new(IndentWidth::default())
-    }
-}
-
-impl PartialEq for LineWidthBuilder {
-    fn eq(&self, other: &Self) -> bool {
-        self.width == other.width
-    }
-}
-
-impl Eq for LineWidthBuilder {}
-
-impl PartialOrd for LineWidthBuilder {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for LineWidthBuilder {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.width.cmp(&other.width)
-    }
-}
-
-impl LineWidthBuilder {
-    pub(crate) fn get(&self) -> usize {
-        self.width
-    }
-
-    /// Creates a new `LineWidth` with the given tab size.
-    pub(crate) fn new(tab_size: IndentWidth) -> Self {
-        LineWidthBuilder {
-            width: 0,
-            column: 0,
-            tab_size,
-        }
-    }
-
-    fn update(mut self, chars: impl Iterator<Item = char>) -> Self {
-        let tab_size: usize = self.tab_size.as_usize();
-        for c in chars {
-            match c {
-                '\t' => {
-                    let tab_offset = tab_offset(self.column, tab_size);
-                    self.width += tab_offset;
-                    self.column += tab_offset;
-                }
-                '\n' | '\r' => {
-                    self.width = 0;
-                    self.column = 0;
-                }
-                _ => {
-                    self.width += c.width().unwrap_or(0);
-                    self.column += 1;
-                }
-            }
-        }
-        self
-    }
-
-    /// Adds the given text to the line width.
-    #[must_use]
-    pub(crate) fn add_str(self, text: &str) -> Self {
-        self.update(text.chars())
-    }
-
-    /// Adds the given character to the line width.
-    #[must_use]
-    pub(crate) fn add_char(self, c: char) -> Self {
-        self.update(std::iter::once(c))
-    }
-
-    /// Adds the given width to the line width.
-    /// Also adds the given width to the column.
-    /// It is generally better to use [`LineWidthBuilder::add_str`] or [`LineWidthBuilder::add_char`].
-    /// The width and column should be the same for the corresponding text.
-    /// Currently, this is only used to add spaces.
-    #[must_use]
-    pub(crate) fn add_width(mut self, width: usize) -> Self {
-        self.width += width;
-        self.column += width;
-        self
-    }
-
-    /// Adds the width of a trailing comment, including the standard two-space separator that
-    /// precedes it. In preview mode, any pragma comment is excluded per
-    /// [`pragma_offset_for_line_length`].
-    ///
-    /// Pragma comments are excluded so that adding one to a line never affects whether the line
-    /// is considered to fit, consistent with how `line-too-long` (E501) measures lines. For
-    /// example, counting a `# noqa` comment towards an import's width could cause isort to wrap
-    /// an import that otherwise fits on one line, moving the pragma to a position where it no
-    /// longer applies to the import statement:
-    ///
-    /// ```python
-    /// from module import (
-    ///     member,  # noqa: PLC0415
-    /// )
-    /// ```
-    ///
-    /// Unlike E501, which has always stripped whole-pragma comments on stable, the exclusion
-    /// changes how imports are formatted, so it is preview-gated in its entirety: on stable, the
-    /// full comment width is counted.
-    #[must_use]
-    pub(crate) fn add_comment(self, comment: &str, preview: PreviewMode) -> Self {
-        if !is_pragma_excluded_from_import_width_enabled(preview) {
-            return self.add_width(2).add_str(comment);
-        }
-        let counted = match pragma_offset_for_line_length(comment, preview) {
-            Some(offset) => comment[..offset].trim_end(),
-            None => comment,
-        };
-        if counted.is_empty() {
-            self
-        } else {
-            self.add_width(2).add_str(counted)
-        }
-    }
-}
-
-impl PartialEq<LineLength> for LineWidthBuilder {
-    fn eq(&self, other: &LineLength) -> bool {
-        self.width == (other.value() as usize)
-    }
-}
-
-impl PartialOrd<LineLength> for LineWidthBuilder {
-    fn partial_cmp(&self, other: &LineLength) -> Option<std::cmp::Ordering> {
-        self.width.partial_cmp(&(other.value() as usize))
-    }
-}
-
 /// The size of a tab.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, CacheKey)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct IndentWidth(NonZeroU8);
 
-impl IndentWidth {
-    pub(crate) fn as_usize(self) -> usize {
-        self.0.get() as usize
-    }
-}
+impl IndentWidth {}
 
 impl Default for IndentWidth {
     fn default() -> Self {

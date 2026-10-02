@@ -1,12 +1,12 @@
 use ruff_macros::{ViolationMetadata, derive_message_formats};
 use ruff_python_ast::{self as ast, Expr, Operator, StmtFunctionDef};
+use ruff_python_semantic::analyze::typing;
 use ruff_python_semantic::{Modules, SemanticModel};
 use ruff_text_size::Ranged;
 
 use crate::Violation;
 use crate::checkers::ast::Checker;
 use crate::codes::Category;
-use crate::rules::fastapi::rules::is_fastapi_route;
 
 /// ## What it does
 /// Checks for a FastAPI route whose return annotation is a `dict`.
@@ -97,4 +97,33 @@ fn is_dict_annotation(annotation: &Expr, semantic: &SemanticModel) -> bool {
                 || semantic.match_typing_expr(annotation, "Dict")
         }
     }
+}
+
+fn is_fastapi_route(function_def: &ast::StmtFunctionDef, semantic: &SemanticModel) -> bool {
+    function_def.decorator_list.iter().any(|decorator| {
+        decorator
+            .expression
+            .as_call_expr()
+            .is_some_and(|call| is_fastapi_route_call(call, semantic))
+    })
+}
+
+fn is_fastapi_route_call(call_expr: &ast::ExprCall, semantic: &SemanticModel) -> bool {
+    let ast::Expr::Attribute(ast::ExprAttribute { attr, value, .. }) = &*call_expr.func else {
+        return false;
+    };
+
+    if !matches!(
+        attr.as_str(),
+        "get" | "post" | "put" | "delete" | "patch" | "options" | "head" | "trace"
+    ) {
+        return false;
+    }
+    let Some(name) = value.as_name_expr() else {
+        return false;
+    };
+    let Some(binding_id) = semantic.resolve_name(name) else {
+        return false;
+    };
+    typing::is_fastapi_route(semantic.binding(binding_id), semantic)
 }

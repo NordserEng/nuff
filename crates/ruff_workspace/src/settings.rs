@@ -1,10 +1,8 @@
 use path_absolutize::path_dedot;
 use ruff_cache::cache_dir;
-use ruff_linter::display_settings;
 use ruff_linter::settings::LinterSettings;
 use ruff_linter::settings::types::{FilePattern, FilePatternSet, OutputFormat, UnsafeFixes};
 use ruff_macros::CacheKey;
-use std::fmt;
 use std::path::{Path, PathBuf};
 
 #[expect(clippy::struct_excessive_bools)]
@@ -46,27 +44,6 @@ impl Default for Settings {
     }
 }
 
-impl fmt::Display for Settings {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "\n# General Settings")?;
-        display_settings! {
-            formatter = f,
-            fields = [
-                self.cache_dir     | path,
-                self.fix,
-                self.fix_only,
-                self.output_format,
-                self.output_prefer_rule_codes,
-                self.show_fixes,
-                self.unsafe_fixes,
-                self.file_resolver | nested,
-                self.linter        | nested,
-            ]
-        }
-        Ok(())
-    }
-}
-
 #[derive(Debug, CacheKey)]
 pub struct FileResolverSettings {
     pub exclude: FilePatternSet,
@@ -76,26 +53,6 @@ pub struct FileResolverSettings {
     pub extend_include: FilePatternSet,
     pub respect_gitignore: bool,
     pub project_root: PathBuf,
-}
-
-impl fmt::Display for FileResolverSettings {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "\n# File Resolver Settings")?;
-        display_settings! {
-            formatter = f,
-            namespace = "file_resolver",
-            fields = [
-                self.exclude,
-                self.extend_exclude,
-                self.force_exclude,
-                self.include,
-                self.extend_include,
-                self.respect_gitignore,
-                self.project_root | path,
-            ]
-        }
-        Ok(())
-    }
 }
 
 pub(crate) static EXCLUDE: &[FilePattern] = &[
@@ -130,18 +87,12 @@ pub(crate) static INCLUDE: &[FilePattern] = &[
     FilePattern::Builtin("*.py"),
     FilePattern::Builtin("*.pyi"),
     FilePattern::Builtin("*.ipynb"),
-    FilePattern::Builtin("**/pyproject.toml"),
-    FilePattern::Builtin("**/ruff.toml"),
-    FilePattern::Builtin("**/.ruff.toml"),
 ];
 pub(crate) static INCLUDE_PREVIEW: &[FilePattern] = &[
     FilePattern::Builtin("*.py"),
     FilePattern::Builtin("*.pyi"),
     FilePattern::Builtin("*.pyw"),
     FilePattern::Builtin("*.ipynb"),
-    FilePattern::Builtin("**/pyproject.toml"),
-    FilePattern::Builtin("**/ruff.toml"),
-    FilePattern::Builtin("**/.ruff.toml"),
 ];
 
 impl FileResolverSettings {

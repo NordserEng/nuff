@@ -9,27 +9,21 @@ use anyhow::Result;
 use libcst_native as cst;
 
 use ruff_diagnostics::Edit;
-use ruff_python_ast::token::Tokens;
-use ruff_python_ast::{self as ast, Expr, ModModule, Stmt};
+use ruff_python_ast::{self as ast, ModModule, Stmt};
 use ruff_python_codegen::Stylist;
 use ruff_python_importer::Insertion;
 use ruff_python_parser::Parsed;
 use ruff_python_semantic::{
     ImportedName, MemberNameImport, ModuleNameImport, NameImport, SemanticModel,
 };
-use ruff_python_trivia::{PythonWhitespace, textwrap::indent};
-use ruff_source_file::LineRanges;
-use ruff_text_size::{Ranged, TextRange, TextSize};
+use ruff_text_size::{Ranged, TextSize};
 
 use crate::cst::matchers::{match_aliases, match_import_from, match_statement};
-use crate::fix;
 use crate::fix::codemods::CodegenStylist;
 
 pub(crate) struct Importer<'a> {
     /// The Python AST to which we are adding imports.
     python_ast: &'a [Stmt],
-    /// The tokens representing the Python AST.
-    tokens: &'a Tokens,
     /// The source code text for `python_ast`.
     source: &'a str,
     /// The [`Stylist`] for the Python AST.
@@ -48,7 +42,6 @@ impl<'a> Importer<'a> {
     ) -> Self {
         Self {
             python_ast: parsed.suite(),
-            tokens: parsed.tokens(),
             source,
             stylist,
             runtime_imports: Vec::default(),
@@ -86,12 +79,6 @@ impl<'a> Importer<'a> {
         }
     }
 
-    /// Add an existing import statement to the start of the file.
-    pub(crate) fn add_import_at_start(&self, import: &Stmt) -> Edit {
-        let range = TextRange::new(import.start(), self.source.line_end(import.end()));
-        self.add_at_start(self.source[range].trim_whitespace())
-    }
-
     fn add_at_start(&self, text: &str) -> Edit {
         if let Some(last_future_import) = self.find_last_future_import() {
             Insertion::end_of_statement(last_future_import, self.source, self.stylist)
@@ -100,182 +87,6 @@ impl<'a> Importer<'a> {
             Insertion::start_of_file(self.python_ast, self.source, self.stylist, None)
                 .into_edit(text)
         }
-    }
-
-    /// Move an existing import to the top-level, thereby making it available at runtime.
-    ///
-    /// If there are no existing imports, the new import will be added at the top
-    /// of the file. Otherwise, it will be added after the most recent top-level
-    /// import statement.
-    pub(crate) fn runtime_import_edit(
-        &self,
-        import: &ImportedMembers,
-        at: TextSize,
-    ) -> Result<RuntimeImportEdit> {
-        // Generate the modified import statement.
-        let content = fix::codemods::retain_imports(
-            &import.names,
-            import.statement,
-            self.source,
-            self.stylist,
-        )?;
-
-        // Add the import to the top-level.
-        let insertion = if let Some(stmt) = self.preceding_import(at) {
-            // Insert after the last top-level import.
-            Insertion::end_of_statement(stmt, self.source, self.stylist)
-        } else {
-            // Insert at the start of the file.
-            Insertion::start_of_file(self.python_ast, self.source, self.stylist, None)
-        };
-        let add_import_edit = insertion.into_edit(&content);
-
-        Ok(RuntimeImportEdit { add_import_edit })
-    }
-
-    /// Move an existing import into a `TYPE_CHECKING` block.
-    ///
-    /// If there are no existing `TYPE_CHECKING` blocks, a new one will be added at the top
-    /// of the file. Otherwise, it will be added after the most recent top-level
-    /// `TYPE_CHECKING` block.
-    pub(crate) fn typing_import_edit(
-        &self,
-        import: &ImportedMembers,
-        at: TextSize,
-        semantic: &SemanticModel<'a>,
-    ) -> Result<TypingImportEdit> {
-        // Generate the modified import statement.
-        let content = fix::codemods::retain_imports(
-            &import.names,
-            import.statement,
-            self.source,
-            self.stylist,
-        )?;
-
-        // Add the import to an existing `TYPE_CHECKING` block.
-        if let Some(block) = self.preceding_type_checking_block(at) {
-            // Add the import to the existing `TYPE_CHECKING` block.
-            let type_checking_edit =
-                if let Some(statement) = Self::type_checking_binding_statement(semantic, block) {
-                    if statement == import.statement {
-                        // Special-case: if the `TYPE_CHECKING` symbol is imported as part of the same
-                        // statement that we're modifying, avoid adding a no-op edit. For example, here,
-                        // the `TYPE_CHECKING` no-op edit would overlap with the edit to remove `Final`
-                        // from the import:
-                        // ```python
-                        // from __future__ import annotations
-                        //
-                        // from typing import Final, TYPE_CHECKING
-                        //
-                        // Const: Final[dict] = {}
-                        // ```
-                        None
-                    } else {
-                        Some(Edit::range_replacement(
-                            self.source[statement.range()].to_string(),
-                            statement.range(),
-                        ))
-                    }
-                } else {
-                    None
-                };
-            return Ok(TypingImportEdit {
-                type_checking_edit,
-                add_import_edit: self.add_to_type_checking_block(&content, block.start()),
-            });
-        }
-
-        // Import the `TYPE_CHECKING` symbol from the typing module.
-        let (type_checking_edit, type_checking) =
-            if let Some(type_checking) = Self::find_type_checking(at, semantic)? {
-                // Special-case: if the `TYPE_CHECKING` symbol is imported as part of the same
-                // statement that we're modifying, avoid adding a no-op edit. For example, here,
-                // the `TYPE_CHECKING` no-op edit would overlap with the edit to remove `Final`
-                // from the import:
-                // ```python
-                // from __future__ import annotations
-                //
-                // from typing import Final, TYPE_CHECKING
-                //
-                // Const: Final[dict] = {}
-                // ```
-                let edit = if type_checking.statement(semantic) == import.statement {
-                    None
-                } else {
-                    Some(Edit::range_replacement(
-                        self.source[type_checking.range()].to_string(),
-                        type_checking.range(),
-                    ))
-                };
-                (edit, type_checking.into_name())
-            } else {
-                // Special-case: if the `TYPE_CHECKING` symbol would be added to the same import
-                // we're modifying, import it as a separate import statement. For example, here,
-                // we're concurrently removing `Final` and adding `TYPE_CHECKING`, so it's easier to
-                // use a separate import statement:
-                // ```python
-                // from __future__ import annotations
-                //
-                // from typing import Final
-                //
-                // Const: Final[dict] = {}
-                // ```
-                let (edit, name) = self.import_symbol(
-                    &ImportRequest::import_from("typing", "TYPE_CHECKING"),
-                    at,
-                    Some(import.statement),
-                    semantic,
-                )?;
-                (Some(edit), name)
-            };
-
-        // Add the import to a new `TYPE_CHECKING` block.
-        Ok(TypingImportEdit {
-            type_checking_edit,
-            add_import_edit: self.add_type_checking_block(
-                &format!(
-                    "{}if {type_checking}:{}{}",
-                    self.stylist.line_ending().as_str(),
-                    self.stylist.line_ending().as_str(),
-                    indent(&content, self.stylist.indentation())
-                ),
-                at,
-            )?,
-        })
-    }
-
-    fn type_checking_binding_statement(
-        semantic: &SemanticModel<'a>,
-        type_checking_block: &Stmt,
-    ) -> Option<&'a Stmt> {
-        let Stmt::If(ast::StmtIf { test, .. }) = type_checking_block else {
-            return None;
-        };
-
-        let mut source = test;
-        while let Expr::Attribute(ast::ExprAttribute { value, .. }) = source.as_ref() {
-            source = value;
-        }
-        semantic
-            .binding(semantic.resolve_name(source.as_name_expr()?)?)
-            .statement(semantic)
-    }
-
-    /// Find a reference to `typing.TYPE_CHECKING`.
-    fn find_type_checking(
-        at: TextSize,
-        semantic: &SemanticModel,
-    ) -> Result<Option<ImportedName>, ResolutionError> {
-        for module in semantic.typing_modules() {
-            if let Some(imported_name) = Self::find_symbol(
-                &ImportRequest::import_from(module, "TYPE_CHECKING"),
-                at,
-                semantic,
-            )? {
-                return Ok(Some(imported_name));
-            }
-        }
-        Ok(None)
     }
 
     /// Generate an [`Edit`] to reference the given symbol. Returns the [`Edit`] necessary to make
@@ -507,45 +318,12 @@ impl<'a> Importer<'a> {
         ))
     }
 
-    /// Add a `TYPE_CHECKING` block to the given module.
-    fn add_type_checking_block(&self, content: &str, at: TextSize) -> Result<Edit> {
-        let insertion = if let Some(stmt) = self.preceding_import(at) {
-            // Insert after the last top-level import.
-            Insertion::end_of_statement(stmt, self.source, self.stylist)
-        } else {
-            // Insert at the start of the file.
-            Insertion::start_of_file(self.python_ast, self.source, self.stylist, None)
-        };
-        if insertion.is_inline() {
-            Err(anyhow::anyhow!(
-                "Cannot insert `TYPE_CHECKING` block inline"
-            ))
-        } else {
-            Ok(insertion.into_edit(content))
-        }
-    }
-
-    /// Add an import statement to an existing `TYPE_CHECKING` block.
-    fn add_to_type_checking_block(&self, content: &str, at: TextSize) -> Edit {
-        Insertion::start_of_block(at, self.source, self.stylist, self.tokens).into_edit(content)
-    }
-
     /// Return the import statement that precedes the given position, if any.
     fn preceding_import(&self, at: TextSize) -> Option<&'a Stmt> {
         self.runtime_imports
             .partition_point(|stmt| stmt.start() < at)
             .checked_sub(1)
             .map(|idx| self.runtime_imports[idx])
-    }
-
-    /// Return the `TYPE_CHECKING` block that precedes the given position, if any.
-    fn preceding_type_checking_block(&self, at: TextSize) -> Option<&'a Stmt> {
-        let block = self.type_checking_blocks.first()?;
-        if block.start() <= at {
-            Some(block)
-        } else {
-            None
-        }
     }
 
     /// Find the last `from __future__` import statement in the AST.
@@ -559,49 +337,6 @@ impl<'a> Importer<'a> {
             })
         })
         .last()
-    }
-
-    /// Add a `from __future__ import annotations` import.
-    pub(crate) fn add_future_import(&self) -> Edit {
-        let import = &NameImport::ImportFrom(MemberNameImport::member(
-            "__future__".to_string(),
-            "annotations".to_string(),
-        ));
-        // Note that `TextSize::default` should ensure that the import is added at the very
-        // beginning of the file via `Insertion::start_of_file`.
-        self.add_import(import, TextSize::default(), false)
-    }
-}
-
-/// An edit to the top-level of a module, making it available at runtime.
-#[derive(Debug)]
-pub(crate) struct RuntimeImportEdit {
-    /// The edit to add the import to the top-level of the module.
-    add_import_edit: Edit,
-}
-
-impl RuntimeImportEdit {
-    pub(crate) fn into_edits(self) -> Vec<Edit> {
-        vec![self.add_import_edit]
-    }
-}
-
-/// An edit to an import to a typing-only context.
-#[derive(Debug)]
-pub(crate) struct TypingImportEdit {
-    /// The edit to add the `TYPE_CHECKING` symbol to the module.
-    type_checking_edit: Option<Edit>,
-    /// The edit to add the import to a `TYPE_CHECKING` block.
-    add_import_edit: Edit,
-}
-
-impl TypingImportEdit {
-    pub(crate) fn into_edits(self) -> (Edit, Option<Edit>) {
-        if let Some(type_checking_edit) = self.type_checking_edit {
-            (type_checking_edit, Some(self.add_import_edit))
-        } else {
-            (self.add_import_edit, None)
-        }
     }
 }
 
@@ -644,14 +379,6 @@ impl<'a> ImportRequest<'a> {
             style: ImportStyle::ImportFrom,
         }
     }
-}
-
-/// An existing list of module or member imports, located within an import statement.
-pub(crate) struct ImportedMembers<'a> {
-    /// The import statement.
-    pub(crate) statement: &'a Stmt,
-    /// The "names" of the imported members.
-    pub(crate) names: Vec<&'a str>,
 }
 
 /// The result of an [`Importer::get_or_import_symbol`] call.

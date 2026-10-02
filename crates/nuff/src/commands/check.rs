@@ -236,8 +236,7 @@ mod test {
 
     use super::check;
 
-    /// We check that regular python files, pyproject.toml and jupyter notebooks all handle io
-    /// errors gracefully
+    /// Python files and Jupyter notebooks both report io errors gracefully.
     #[test]
     fn unreadable_files() -> Result<()> {
         let path = "E902.py";
@@ -245,10 +244,9 @@ mod test {
 
         // Create inaccessible files
         let tempdir = TempDir::new()?;
-        let pyproject_toml = tempdir.path().join("pyproject.toml");
         let python_file = tempdir.path().join("code.py");
         let notebook = tempdir.path().join("notebook.ipynb");
-        for file in [&pyproject_toml, &python_file, &notebook] {
+        for file in [&python_file, &notebook] {
             fs::OpenOptions::new()
                 .create(true)
                 .truncate(true)
@@ -259,9 +257,8 @@ mod test {
 
         // Configure
         let snapshot = format!("{}_{}", rule_code.name(), path);
-        // invalid pyproject.toml is not active by default
         let settings = Settings {
-            linter: LinterSettings::for_rules(vec![rule_code, Rule::InvalidPyprojectToml]),
+            linter: LinterSettings::for_rule(rule_code),
             ..Settings::default()
         };
         let pyproject_config =

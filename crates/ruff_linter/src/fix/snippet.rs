@@ -5,10 +5,6 @@ use unicode_width::UnicodeWidthStr;
 pub(crate) struct SourceCodeSnippet(String);
 
 impl SourceCodeSnippet {
-    pub(crate) fn new(source_code: String) -> Self {
-        Self(source_code)
-    }
-
     pub(crate) fn from_str(source_code: &str) -> Self {
         Self(source_code.to_string())
     }
@@ -20,15 +16,6 @@ impl SourceCodeSnippet {
             None
         } else {
             Some(&self.0)
-        }
-    }
-
-    /// Return a truncated snippet for user-facing display.
-    pub(crate) fn truncated_display(&self) -> &str {
-        if Self::should_truncate(&self.0) {
-            "..."
-        } else {
-            &self.0
         }
     }
 

@@ -13,7 +13,7 @@ mod tests {
     use regex::Regex;
     use ruff_db::diagnostic::Diagnostic;
     use ruff_python_parser::ParseOptions;
-    use rustc_hash::FxHashMap;
+
     use test_case::test_case;
 
     use ruff_python_ast::PySourceType;
@@ -23,12 +23,10 @@ mod tests {
 
     use crate::linter::check_path;
     use crate::registry::{Linter, Rule};
-    use crate::rules::isort;
     use crate::rules::pyflakes;
     use crate::settings::types::PreviewMode;
     use crate::settings::{LinterSettings, flags};
     use crate::source_kind::SourceKind;
-    use crate::suppression::Suppressions;
     use crate::test::{test_contents, test_path, test_snippet};
     use crate::{Locator, assert_diagnostics, assert_diagnostics_diff, directives};
 
@@ -196,29 +194,6 @@ mod tests {
         Ok(())
     }
 
-    #[test_case(Rule::UndefinedName, Path::new("F821_29.py"))]
-    fn rules_with_flake8_type_checking_settings_enabled(
-        rule_code: Rule,
-        path: &Path,
-    ) -> Result<()> {
-        let snapshot = format!("{}_{}", rule_code.name(), path.to_string_lossy());
-        let diagnostics = test_path(
-            Path::new("pyflakes").join(path).as_path(),
-            &LinterSettings {
-                flake8_type_checking: crate::rules::flake8_type_checking::settings::Settings {
-                    runtime_required_base_classes: vec![
-                        "pydantic.BaseModel".to_string(),
-                        "sqlalchemy.orm.DeclarativeBase".to_string(),
-                    ],
-                    ..Default::default()
-                },
-                ..LinterSettings::for_rule(rule_code)
-            },
-        )?;
-        assert_diagnostics!(snapshot, diagnostics);
-        Ok(())
-    }
-
     #[test]
     fn f821_with_builtin_added_on_new_py_version_but_old_target_version_specified() {
         let diagnostics = test_snippet(
@@ -291,6 +266,11 @@ mod tests {
         "f401_preview_dunder_all_multiple_bindings"
     )]
     fn f401_preview_first_party_submodule(contents: &str, snapshot: &str) {
+        let src = tempfile::tempdir().unwrap();
+        std::fs::create_dir(src.path().join("submodule")).unwrap();
+        for module in ["a", "bar", "baz"] {
+            std::fs::write(src.path().join(format!("submodule/{module}.py")), "").unwrap();
+        }
         let diagnostics = test_contents(
             &SourceKind::Python {
                 code: dedent(contents).to_string(),
@@ -299,20 +279,8 @@ mod tests {
             Path::new("f401_preview_first_party_submodule/__init__.py"),
             &LinterSettings {
                 preview: PreviewMode::Enabled,
-                isort: isort::settings::Settings {
-                    // This case specifically tests the scenario where
-                    // the unused import is a first-party submodule import;
-                    // use the isort settings to ensure that the `submodule.a` import
-                    // is recognised as first-party in the test:
-                    known_modules: isort::categorize::KnownModules::new(
-                        vec!["submodule".parse().unwrap()],
-                        vec![],
-                        vec![],
-                        vec![],
-                        FxHashMap::default(),
-                    ),
-                    ..isort::settings::Settings::default()
-                },
+                // `submodule` is first-party because it is a package under a `src` root.
+                src: vec![src.path().to_path_buf()],
                 ..LinterSettings::for_rule(Rule::UnusedImport)
             },
         )
@@ -326,18 +294,9 @@ mod tests {
         let snapshot = format!("preview__{}_{}", rule_code.name(), path.to_string_lossy());
         let settings = LinterSettings {
             preview: PreviewMode::Enabled,
-            isort: isort::settings::Settings {
-                // Like `f401_preview_first_party_submodule`, this test requires the input module to
-                // be first-party
-                known_modules: isort::categorize::KnownModules::new(
-                    vec!["F401_*".parse()?],
-                    vec![],
-                    vec![],
-                    vec![],
-                    FxHashMap::default(),
-                ),
-                ..isort::settings::Settings::default()
-            },
+            // Like `f401_preview_first_party_submodule`, this test requires the input module to be
+            // first-party.
+            src: vec![crate::test::test_resource_path("fixtures/pyflakes")],
             ..LinterSettings::for_rule(rule_code)
         };
         let diagnostics = test_path(Path::new("pyflakes").join(path).as_path(), &settings)?;
@@ -996,14 +955,7 @@ mod tests {
         let locator = Locator::new(&contents);
         let stylist = Stylist::from_tokens(parsed.tokens(), locator.contents());
         let indexer = Indexer::from_tokens(parsed.tokens(), locator.contents());
-        let directives = directives::extract_directives(
-            parsed.tokens(),
-            directives::Flags::from_settings(&settings),
-            &locator,
-            &indexer,
-        );
-        let suppressions =
-            Suppressions::from_tokens(locator.contents(), parsed.tokens(), &indexer, &settings);
+        let directives = directives::extract_directives(parsed.tokens(), &locator, &indexer);
         let mut messages = check_path(
             Path::new("<filename>"),
             None,
@@ -1017,7 +969,6 @@ mod tests {
             source_type,
             &parsed,
             target_version,
-            &suppressions,
         );
         messages.sort_by(Diagnostic::ruff_start_ordering);
         let actual = messages

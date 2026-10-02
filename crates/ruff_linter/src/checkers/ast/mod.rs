@@ -26,7 +26,7 @@ use std::path::Path;
 
 use itertools::Itertools;
 use log::debug;
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 
 use ruff_db::diagnostic::{Annotation, Diagnostic, DiagnosticTag, IntoDiagnosticMessage, Span};
@@ -35,16 +35,15 @@ use ruff_notebook::{CellOffsets, NotebookIndex};
 use ruff_python_ast::helpers::{collect_import_from_member, is_docstring_stmt, to_module_path};
 use ruff_python_ast::identifier::Identifier;
 use ruff_python_ast::name::QualifiedName;
-use ruff_python_ast::str::Quote;
 use ruff_python_ast::token::Tokens;
 use ruff_python_ast::visitor::{Visitor, walk_except_handler, walk_pattern};
 use ruff_python_ast::{
     self as ast, AnyParameterRef, ArgOrKeyword, Comprehension, ElifElseClause, ExceptHandler, Expr,
-    ExprContext, ExprFString, ExprTString, InterpolatedStringElement, Keyword, MatchCase,
-    ModModule, Parameter, Parameters, Pattern, PythonVersion, Stmt, Suite, UnaryOp,
+    ExprContext, InterpolatedStringElement, Keyword, MatchCase, ModModule, Parameter, Parameters,
+    Pattern, PythonVersion, Stmt, Suite, UnaryOp,
 };
 use ruff_python_ast::{PySourceType, helpers, str, visitor};
-use ruff_python_codegen::{Generator, Stylist};
+use ruff_python_codegen::Stylist;
 use ruff_python_index::Indexer;
 use ruff_python_parser::semantic_errors::{
     LazyImportContext, SemanticSyntaxChecker, SemanticSyntaxContext, SemanticSyntaxError,
@@ -56,40 +55,36 @@ use ruff_python_semantic::all::{DunderAllDefinition, DunderAllFlags};
 use ruff_python_semantic::analyze::{class, imports, typing};
 use ruff_python_semantic::{
     BindingFlags, BindingId, BindingKind, Exceptions, Export, FromImport, GeneratorKind, Globals,
-    Import, ImportLaziness, Module, ModuleKind, ModuleSource, NodeId, ScopeId, ScopeKind,
-    SemanticModel, SemanticModelFlags, StarImport, SubmoduleImport,
+    Import, Module, ModuleKind, ModuleSource, NodeId, ScopeId, ScopeKind, SemanticModel,
+    SemanticModelFlags, StarImport, SubmoduleImport,
 };
 use ruff_python_trivia::CommentRanges;
 use ruff_source_file::{OneIndexed, SourceFile, SourceFileBuilder, SourceRow};
 use ruff_text_size::{Ranged, TextRange, TextSize};
 
-use crate::checkers::ast::annotation::AnnotationContext;
-use crate::docstrings::extraction::ExtractionTarget;
-use crate::importer::{ImportRequest, Importer, ResolutionError};
+use crate::Violation;
+use crate::checkers::ast::annotation::{
+    AnnotationContext, is_dataclass_meta_annotation, is_singledispatch_implementation,
+};
+use crate::checkers::ast::definition::{ExtractionTarget, extract_definition};
+use crate::importer::Importer;
 use crate::noqa::NoqaMapping;
 use crate::package::PackageRoot;
-use crate::preview::{
-    is_incorrect_dict_iterator_comprehension_enabled, is_undefined_export_in_dunder_init_enabled,
-};
+use crate::preview::is_undefined_export_in_dunder_init_enabled;
 use crate::registry::Rule;
-use crate::rules::flake8_bugbear::rules::ReturnInGenerator;
+use crate::rules::pyflakes;
 use crate::rules::pyflakes::rules::{
     LateFutureImport, MultipleStarredExpressions, ReturnOutsideFunction,
     UndefinedLocalWithNestedImportStarUsage, YieldOutsideFunction,
 };
-use crate::rules::pylint::rules::{
-    AwaitOutsideAsync, LoadBeforeGlobalDeclaration, NonlocalWithoutBinding,
-    YieldFromInAsyncFunction,
-};
-use crate::rules::{flake8_pyi, flake8_type_checking, pyflakes, pyupgrade};
 use crate::settings::rule_table::RuleTable;
 use crate::settings::{LinterSettings, TargetVersion, flags};
-use crate::{Edit, Violation};
-use crate::{Locator, docstrings, noqa};
+use crate::{Locator, noqa};
 
 mod analyze;
 mod annotation;
 mod deferred;
+mod definition;
 
 /// State representing whether a docstring is expected or not for the next statement.
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -235,8 +230,6 @@ pub(crate) struct Checker<'a> {
     visit: deferred::Visit<'a>,
     /// A set of deferred nodes to be analyzed after the AST traversal (e.g., `for` loops).
     analyze: deferred::Analyze,
-    /// The list of names already seen by flake8-bugbear diagnostics, to avoid duplicate violations.
-    flake8_bugbear_seen: RefCell<FxHashSet<TextRange>>,
     /// The end offset of the last visited statement.
     last_stmt_end: TextSize,
     /// A state describing if a docstring is expected or not.
@@ -297,7 +290,6 @@ impl<'a> Checker<'a> {
             semantic,
             visit: deferred::Visit::default(),
             analyze: deferred::Analyze::default(),
-            flake8_bugbear_seen: RefCell::default(),
             cell_offsets,
             notebook_index,
             last_stmt_end: TextSize::default(),
@@ -333,11 +325,6 @@ impl<'a> Checker<'a> {
         )
     }
 
-    /// Create a [`Generator`] to generate source code based on the current AST state.
-    pub(crate) fn generator(&self) -> Generator<'_> {
-        Generator::new(self.stylist.indentation(), self.stylist.line_ending())
-    }
-
     pub(crate) fn lazy_import_context(&self) -> Option<LazyImportContext> {
         match self.semantic.current_scope().kind {
             // Possible, but invalid positions.
@@ -359,73 +346,6 @@ impl<'a> Checker<'a> {
         }
 
         None
-    }
-
-    /// Whether changing this import's module preserves membership in `__lazy_modules__`.
-    pub(crate) fn import_rewrite_preserves_laziness(&self, original: &str, target: &str) -> bool {
-        if self.lazy_import_context().is_some()
-            || matches!(self.semantic.current_statement(), Stmt::ImportFrom(import)
-                if import.names.iter().any(|alias| alias.name.as_str() == "*"))
-        {
-            return true;
-        }
-        matches!(
-            (
-                self.semantic.module_laziness(original),
-                self.semantic.module_laziness(target)
-            ),
-            (ImportLaziness::Lazy, ImportLaziness::Lazy)
-                | (ImportLaziness::Eager, ImportLaziness::Eager)
-        )
-    }
-
-    /// Return the preferred quote for a generated `StringLiteral` node, given where we are in the
-    /// AST.
-    fn preferred_quote(&self) -> Quote {
-        self.interpolated_string_quote_style()
-            .unwrap_or(self.stylist.quote())
-    }
-
-    /// Return the default string flags a generated `StringLiteral` node should use, given where we
-    /// are in the AST.
-    pub(crate) fn default_string_flags(&self) -> ast::StringLiteralFlags {
-        ast::StringLiteralFlags::empty().with_quote_style(self.preferred_quote())
-    }
-
-    /// Return the default bytestring flags a generated `ByteStringLiteral` node should use, given
-    /// where we are in the AST.
-    pub(crate) fn default_bytes_flags(&self) -> ast::BytesLiteralFlags {
-        ast::BytesLiteralFlags::empty().with_quote_style(self.preferred_quote())
-    }
-
-    // TODO(dylan) add similar method for t-strings
-    /// Return the default f-string flags a generated `FString` node should use, given where we are
-    /// in the AST.
-    pub(crate) fn default_fstring_flags(&self) -> ast::FStringFlags {
-        ast::FStringFlags::empty().with_quote_style(self.preferred_quote())
-    }
-
-    /// Returns the appropriate quoting for interpolated strings by reversing the one used outside of
-    /// the interpolated string.
-    ///
-    /// If the current expression in the context is not an interpolated string, returns ``None``.
-    pub(crate) fn interpolated_string_quote_style(&self) -> Option<Quote> {
-        if !self.semantic.in_interpolated_string() {
-            return None;
-        }
-
-        // Find the quote character used to start the containing interpolated string.
-        self.semantic
-            .current_expressions()
-            .find_map(|expr| match expr {
-                Expr::FString(ExprFString { value, .. }) => {
-                    Some(value.iter().next()?.quote_style().opposite())
-                }
-                Expr::TString(ExprTString { value, .. }) => {
-                    Some(value.iter().next()?.quote_style().opposite())
-                }
-                _ => None,
-            })
     }
 
     /// Returns the [`SourceRow`] for the given offset.
@@ -472,27 +392,6 @@ impl<'a> Checker<'a> {
         self.context.report_diagnostic_if_enabled(kind, range)
     }
 
-    /// Return a [`DiagnosticGuard`] for reporting a diagnostic, with its fix title deferred.
-    ///
-    /// Prefer [`Checker::report_diagnostic`] unless you need to attach sub-diagnostics before the
-    /// fix title. See its documentation for more details.
-    pub(crate) fn report_custom_diagnostic<'chk, T: Violation>(
-        &'chk self,
-        kind: T,
-        range: TextRange,
-    ) -> DiagnosticGuard<'chk, 'a> {
-        self.context.report_custom_diagnostic(kind, range)
-    }
-
-    /// Adds a [`TextRange`] to the set of ranges of variable names
-    /// flagged in `flake8-bugbear` violations so far.
-    ///
-    /// Returns whether the value was newly inserted.
-    pub(crate) fn insert_flake8_bugbear_range(&self, range: TextRange) -> bool {
-        let mut ranges = self.flake8_bugbear_seen.borrow_mut();
-        ranges.insert(range)
-    }
-
     /// Returns the [`Tokens`] for the parsed type annotation if the checker is in a typing context
     /// or the parsed source code.
     pub(crate) fn tokens(&self) -> &'a Tokens {
@@ -501,15 +400,6 @@ impl<'a> Checker<'a> {
         } else {
             self.parsed.tokens()
         }
-    }
-
-    /// Returns the [`Tokens`] for the parsed source file.
-    ///
-    ///
-    /// Unlike [`Self::tokens`], this method always returns
-    /// the tokens for the current file, even when within a parsed type annotation.
-    pub(crate) fn source_tokens(&self) -> &'a Tokens {
-        self.parsed.tokens()
     }
 
     /// The [`Locator`] for the current file, which enables extraction of source code from byte
@@ -560,11 +450,6 @@ impl<'a> Checker<'a> {
         self.package
     }
 
-    /// The [`CellOffsets`] for the current file, if it's a Jupyter notebook.
-    pub(crate) const fn cell_offsets(&self) -> Option<&'a CellOffsets> {
-        self.cell_offsets
-    }
-
     /// Returns whether the given rule should be checked.
     #[inline]
     pub(crate) const fn is_rule_enabled(&self, rule: Rule) -> bool {
@@ -602,26 +487,6 @@ impl<'a> Checker<'a> {
             .lookup_or_parse(annotation, self.locator.contents())
     }
 
-    /// Apply a test to an annotation expression,
-    /// abstracting over the fact that the annotation expression might be "stringized".
-    ///
-    /// A stringized annotation is one enclosed in string quotes:
-    /// `foo: "typing.Any"` means the same thing to a type checker as `foo: typing.Any`.
-    pub(crate) fn match_maybe_stringized_annotation(
-        &self,
-        expr: &ast::Expr,
-        match_fn: impl FnOnce(&ast::Expr) -> bool,
-    ) -> bool {
-        if let ast::Expr::StringLiteral(string_annotation) = expr {
-            let Some(parsed_annotation) = self.parse_type_annotation(string_annotation).ok() else {
-                return false;
-            };
-            match_fn(parsed_annotation.expression())
-        } else {
-            match_fn(expr)
-        }
-    }
-
     /// Push `diagnostic` if the checker is not in a `@no_type_check` context.
     fn report_type_diagnostic<T: Violation>(&self, kind: T, range: TextRange) {
         if !self.semantic.in_no_type_check() {
@@ -645,67 +510,6 @@ impl<'a> Checker<'a> {
         let mut checker = std::mem::take(&mut self.semantic_checker);
         f(&mut checker, self);
         self.semantic_checker = checker;
-    }
-
-    /// Create a [`TypingImporter`] that will import `member` from either `typing` or
-    /// `typing_extensions`.
-    ///
-    /// On Python <`version_added_to_typing`, `member` is imported from `typing_extensions`, while
-    /// on Python >=`version_added_to_typing`, it is imported from `typing`.
-    ///
-    /// If the Python version is less than `version_added_to_typing` but
-    /// `LinterSettings::typing_extensions` is `false`, this method returns `None`.
-    pub(crate) fn typing_importer<'b>(
-        &'b self,
-        member: &'b str,
-        version_added_to_typing: PythonVersion,
-    ) -> Option<TypingImporter<'b, 'a>> {
-        let source_module = if self.target_version() >= version_added_to_typing {
-            "typing"
-        } else if !self.settings().typing_extensions {
-            return None;
-        } else {
-            "typing_extensions"
-        };
-        Some(TypingImporter {
-            checker: self,
-            source_module,
-            member,
-        })
-    }
-
-    /// Return the [`LintContext`] for the current analysis.
-    ///
-    /// Note that you should always prefer calling methods like `settings`, `report_diagnostic`, or
-    /// `is_rule_enabled` directly on [`Checker`] when possible. This method exists only for the
-    /// rare cases where rules or helper functions need to be accessed by both a `Checker` and a
-    /// `LintContext` in different analysis phases.
-    pub(crate) const fn context(&self) -> &'a LintContext<'a> {
-        self.context
-    }
-
-    /// Return the current [`DocstringState`].
-    pub(crate) fn docstring_state(&self) -> DocstringState {
-        self.docstring_state
-    }
-}
-
-pub(crate) struct TypingImporter<'a, 'b> {
-    checker: &'a Checker<'b>,
-    source_module: &'static str,
-    member: &'a str,
-}
-
-impl TypingImporter<'_, '_> {
-    /// Create an [`Edit`] that makes the requested symbol available at `position`.
-    ///
-    /// See [`Importer::get_or_import_symbol`] for more details on the returned values and
-    /// [`Checker::typing_importer`] for a way to construct a [`TypingImporter`].
-    pub(crate) fn import(&self, position: TextSize) -> Result<(Edit, String), ResolutionError> {
-        let request = ImportRequest::import_from(self.source_module, self.member);
-        self.checker
-            .importer
-            .get_or_import_symbol(&request, position, self.checker.semantic())
     }
 }
 
@@ -746,17 +550,6 @@ impl SemanticSyntaxContext for Checker<'_> {
                     self.report_diagnostic(LateFutureImport, error.range);
                 }
             }
-            SemanticSyntaxErrorKind::LoadBeforeGlobalDeclaration { name, start } => {
-                if self.is_rule_enabled(Rule::LoadBeforeGlobalDeclaration) {
-                    self.report_diagnostic(
-                        LoadBeforeGlobalDeclaration {
-                            name,
-                            row: self.compute_source_row(start),
-                        },
-                        error.range,
-                    );
-                }
-            }
             SemanticSyntaxErrorKind::YieldOutsideFunction(kind) => {
                 if self.is_rule_enabled(Rule::YieldOutsideFunction) {
                     self.report_diagnostic(YieldOutsideFunction::new(kind), error.range);
@@ -774,17 +567,6 @@ impl SemanticSyntaxContext for Checker<'_> {
                 // F706
                 if self.is_rule_enabled(Rule::ReturnOutsideFunction) {
                     self.report_diagnostic(ReturnOutsideFunction, error.range);
-                }
-            }
-            SemanticSyntaxErrorKind::AwaitOutsideAsyncFunction(_) => {
-                if self.is_rule_enabled(Rule::AwaitOutsideAsync) {
-                    self.report_diagnostic(AwaitOutsideAsync, error.range);
-                }
-            }
-            SemanticSyntaxErrorKind::YieldFromInAsyncFunction => {
-                // PLE1700
-                if self.is_rule_enabled(Rule::YieldFromInAsyncFunction) {
-                    self.report_diagnostic(YieldFromInAsyncFunction, error.range);
                 }
             }
             SemanticSyntaxErrorKind::MultipleStarredExpressions => {
@@ -814,18 +596,11 @@ impl SemanticSyntaxContext for Checker<'_> {
                     self.report_diagnostic(pyflakes::rules::ContinueOutsideLoop, error.range);
                 }
             }
-            SemanticSyntaxErrorKind::NonlocalWithoutBinding(name) => {
-                // PLE0117
-                if self.is_rule_enabled(Rule::NonlocalWithoutBinding) {
-                    self.report_diagnostic(NonlocalWithoutBinding { name }, error.range);
-                }
-            }
-            SemanticSyntaxErrorKind::ReturnInGenerator => {
-                // B901
-                if self.is_rule_enabled(Rule::ReturnInGenerator) {
-                    self.report_diagnostic(ReturnInGenerator, error.range);
-                }
-            }
+            SemanticSyntaxErrorKind::LoadBeforeGlobalDeclaration { .. }
+            | SemanticSyntaxErrorKind::AwaitOutsideAsyncFunction(_)
+            | SemanticSyntaxErrorKind::YieldFromInAsyncFunction
+            | SemanticSyntaxErrorKind::NonlocalWithoutBinding(_)
+            | SemanticSyntaxErrorKind::ReturnInGenerator => {}
             SemanticSyntaxErrorKind::NamedExpressionInComprehensionIterable
             | SemanticSyntaxErrorKind::NamedExpressionInClassBodyComprehension
             | SemanticSyntaxErrorKind::ReboundComprehensionVariable
@@ -1316,19 +1091,12 @@ impl<'a> Visitor<'a> for Checker<'a> {
 
                 // Function annotations are always evaluated at runtime, unless future annotations
                 // are enabled or the Python version is at least 3.14.
-                let annotation = AnnotationContext::from_function(
-                    function_def,
-                    &self.semantic,
-                    self.settings(),
-                    self.target_version(),
-                );
+                let annotation =
+                    AnnotationContext::from_function(&self.semantic, self.target_version());
 
                 // The first parameter may be a single dispatch.
                 let singledispatch =
-                    flake8_type_checking::helpers::is_singledispatch_implementation(
-                        function_def,
-                        self.semantic(),
-                    );
+                    is_singledispatch_implementation(function_def, self.semantic());
 
                 // The default values of the parameters needs to be evaluated in the enclosing
                 // scope.
@@ -1369,9 +1137,6 @@ impl<'a> Visitor<'a> for Checker<'a> {
                             self.visit_runtime_required_annotation(expr);
                         } else {
                             match annotation {
-                                AnnotationContext::RuntimeRequired => {
-                                    self.visit_runtime_required_annotation(expr);
-                                }
                                 AnnotationContext::RuntimeEvaluated => {
                                     self.visit_runtime_evaluated_annotation(expr);
                                 }
@@ -1387,9 +1152,6 @@ impl<'a> Visitor<'a> for Checker<'a> {
                         self.visit_runtime_required_annotation(expr);
                     } else {
                         match annotation {
-                            AnnotationContext::RuntimeRequired => {
-                                self.visit_runtime_required_annotation(expr);
-                            }
                             AnnotationContext::RuntimeEvaluated => {
                                 self.visit_runtime_evaluated_annotation(expr);
                             }
@@ -1400,7 +1162,7 @@ impl<'a> Visitor<'a> for Checker<'a> {
                     }
                 }
 
-                let definition = docstrings::extraction::extract_definition(
+                let definition = extract_definition(
                     ExtractionTarget::Function(function_def),
                     self.semantic.definition_id,
                     &self.semantic.definitions,
@@ -1467,7 +1229,7 @@ impl<'a> Visitor<'a> for Checker<'a> {
                     self.semantic.flags -= SemanticModelFlags::CLASS_BASE;
                 }
 
-                let definition = docstrings::extraction::extract_definition(
+                let definition = extract_definition(
                     ExtractionTarget::Class(class_def),
                     self.semantic.definition_id,
                     &self.semantic.definitions,
@@ -1555,19 +1317,9 @@ impl<'a> Visitor<'a> for Checker<'a> {
                 value,
                 ..
             }) => {
-                match AnnotationContext::from_model(
-                    &self.semantic,
-                    self.settings(),
-                    self.target_version(),
-                ) {
-                    AnnotationContext::RuntimeRequired => {
-                        self.visit_runtime_required_annotation(annotation);
-                    }
+                match AnnotationContext::from_model(&self.semantic, self.target_version()) {
                     AnnotationContext::RuntimeEvaluated
-                        if flake8_type_checking::helpers::is_dataclass_meta_annotation(
-                            annotation,
-                            self.semantic(),
-                        ) =>
+                        if is_dataclass_meta_annotation(annotation, self.semantic()) =>
                     {
                         self.visit_runtime_required_annotation(annotation);
                     }
@@ -1575,10 +1327,7 @@ impl<'a> Visitor<'a> for Checker<'a> {
                         self.visit_runtime_evaluated_annotation(annotation);
                     }
                     AnnotationContext::TypingOnly
-                        if flake8_type_checking::helpers::is_dataclass_meta_annotation(
-                            annotation,
-                            self.semantic(),
-                        ) =>
+                        if is_dataclass_meta_annotation(annotation, self.semantic()) =>
                     {
                         if let Expr::Subscript(subscript) = &**annotation {
                             // Ex) `InitVar[str]`
@@ -1877,7 +1626,6 @@ impl<'a> Visitor<'a> for Checker<'a> {
 
                 self.semantic.push_scope(ScopeKind::Lambda(lambda));
                 self.visit.lambdas.push(self.semantic.snapshot());
-                self.analyze.lambdas.push(self.semantic.snapshot());
             }
             Expr::If(ast::ExprIf {
                 test,
@@ -2367,17 +2115,6 @@ impl<'a> Visitor<'a> for Checker<'a> {
             _ => {}
         }
 
-        // Step 4: Analysis
-        match expr {
-            Expr::StringLiteral(string_literal) => {
-                analyze::string_like(string_literal.into(), self);
-            }
-            Expr::BytesLiteral(bytes_literal) => analyze::string_like(bytes_literal.into(), self),
-            Expr::FString(f_string) => analyze::string_like(f_string.into(), self),
-            Expr::TString(t_string) => analyze::string_like(t_string.into(), self),
-            _ => {}
-        }
-
         self.semantic.flags = flags_snapshot;
         analyze::expression(expr, self);
         self.semantic.pop_node();
@@ -2428,9 +2165,6 @@ impl<'a> Visitor<'a> for Checker<'a> {
             );
         }
 
-        // Step 4: Analysis
-        analyze::except_handler(except_handler, self);
-
         self.semantic.flags = flags_snapshot;
     }
 
@@ -2441,9 +2175,6 @@ impl<'a> Visitor<'a> for Checker<'a> {
         for parameter in parameters.iter().map(AnyParameterRef::as_parameter) {
             self.visit_parameter(parameter);
         }
-
-        // Step 4: Analysis
-        analyze::parameters(parameters, self);
     }
 
     fn visit_parameter(&mut self, parameter: &'a Parameter) {
@@ -2456,9 +2187,6 @@ impl<'a> Visitor<'a> for Checker<'a> {
             BindingKind::Argument,
             BindingFlags::empty(),
         );
-
-        // Step 4: Analysis
-        analyze::parameter(parameter, self);
     }
 
     fn visit_pattern(&mut self, pattern: &'a Pattern) {
@@ -2485,16 +2213,9 @@ impl<'a> Visitor<'a> for Checker<'a> {
 
         // Step 2: Traversal
         walk_pattern(self, pattern);
-
-        // Step 4: Analysis
-        analyze::pattern(pattern, self);
     }
 
     fn visit_body(&mut self, body: &'a [Stmt]) {
-        // Step 4: Analysis
-        analyze::suite(body, self);
-
-        // Step 2: Traversal
         for stmt in body {
             self.visit_stmt(stmt);
         }
@@ -2658,17 +2379,6 @@ impl<'a> Checker<'a> {
                 self.visit_boolean_test(expr);
             }
         }
-
-        // Step 4: Analysis
-        for generator in generators {
-            analyze::comprehension(generator, self);
-        }
-
-        if self.is_rule_enabled(Rule::IncorrectDictIterator)
-            && is_incorrect_dict_iterator_comprehension_enabled(self.settings())
-        {
-            self.analyze.comprehensions.push(self.semantic.snapshot());
-        }
     }
 
     /// Visit a body of [`Stmt`] nodes within a type-checking block.
@@ -2753,10 +2463,6 @@ impl<'a> Checker<'a> {
     /// Visit an [`Expr`], and treat it as the `typ` argument to `typing.cast`.
     fn visit_cast_type_argument(&mut self, arg: &'a Expr) {
         self.visit_type_definition(arg);
-
-        if !self.source_type.is_stub() && self.is_rule_enabled(Rule::RuntimeCastValue) {
-            flake8_type_checking::rules::runtime_cast_value(self, arg);
-        }
     }
 
     /// Visit an [`Expr`], and treat it as a boolean test. This is useful for detecting whether an
@@ -3159,22 +2865,10 @@ impl<'a> Checker<'a> {
                     Ok(parsed_annotation) => {
                         self.parsed_type_annotation = Some(parsed_annotation);
 
-                        let annotation = string_expr.value.to_str();
-                        let range = string_expr.range();
+                        let _annotation = string_expr.value.to_str();
+                        let _range = string_expr.range();
 
                         self.semantic.restore(snapshot);
-
-                        if self.is_rule_enabled(Rule::QuotedAnnotation) {
-                            pyupgrade::rules::quoted_annotation(self, annotation, range);
-                        }
-
-                        if self.source_type.is_stub() {
-                            if self.is_rule_enabled(Rule::QuotedAnnotationInStub) {
-                                flake8_pyi::rules::quoted_annotation_in_stub(
-                                    self, annotation, range,
-                                );
-                            }
-                        }
 
                         let type_definition_flag = match parsed_annotation.kind() {
                             AnnotationKind::Simple => {
@@ -3189,18 +2883,6 @@ impl<'a> Checker<'a> {
                             SemanticModelFlags::TYPE_DEFINITION | type_definition_flag;
                         let parsed_expr = parsed_annotation.expression();
                         self.visit_expr(parsed_expr);
-                        if self.semantic.in_type_alias_value() {
-                            // stub files are covered by PYI020
-                            if !self.source_type.is_stub()
-                                && self.is_rule_enabled(Rule::QuotedTypeAlias)
-                            {
-                                flake8_type_checking::rules::quoted_type_alias(
-                                    self,
-                                    parsed_expr,
-                                    string_expr,
-                                );
-                            }
-                        }
                         self.parsed_type_annotation = None;
                     }
                     Err(parse_error) => {
@@ -3555,13 +3237,8 @@ pub(crate) fn check_ast(
     checker.visit_exports();
 
     // Check docstrings, bindings, and unresolved references.
-    analyze::deferred_lambdas(&mut checker);
-    analyze::deferred_for_loops(&mut checker);
-    analyze::deferred_comprehensions(&mut checker);
-    analyze::definitions(&mut checker);
     analyze::bindings(&checker);
     analyze::unresolved_references(&checker);
-    analyze::deferred_with_statements(&mut checker);
 
     // Reset the scope to module-level, and check all consumed scopes.
     checker.semantic.scope_id = ScopeId::global();
@@ -3704,18 +3381,8 @@ impl<'a> LintContext<'a> {
     }
 
     #[inline]
-    pub(crate) fn iter_enabled_rules(&self) -> impl Iterator<Item = Rule> + '_ {
-        self.rules.iter_enabled()
-    }
-
-    #[inline]
     pub(crate) fn into_parts(self) -> (Vec<Diagnostic>, LazySourceFile<'a>) {
         (self.diagnostics.into_inner(), self.source_file)
-    }
-
-    #[inline]
-    pub(crate) fn into_diagnostics(self) -> Vec<Diagnostic> {
-        self.diagnostics.into_inner()
     }
 
     #[inline]
@@ -3726,11 +3393,6 @@ impl<'a> LintContext<'a> {
     #[inline]
     pub(crate) fn iter(&mut self) -> impl Iterator<Item = &Diagnostic> {
         self.diagnostics.get_mut().iter()
-    }
-
-    /// The [`LinterSettings`] for the current analysis, including the enabled rules.
-    pub(crate) const fn settings(&self) -> &LinterSettings {
-        self.settings
     }
 
     pub(crate) fn source_file(&self) -> &SourceFile {
@@ -3782,14 +3444,6 @@ pub(crate) struct DiagnosticGuard<'a, 'b> {
 }
 
 impl DiagnosticGuard<'_, '_> {
-    /// Consume the underlying `Diagnostic` without emitting it.
-    ///
-    /// In general you should avoid constructing diagnostics that may not be emitted, but this
-    /// method can be used where this is unavoidable.
-    pub(crate) fn defuse(mut self) {
-        self.diagnostic = None;
-    }
-
     /// Set the message on the primary annotation for this diagnostic.
     ///
     /// If a message already exists on the primary annotation, then this
@@ -3921,13 +3575,6 @@ impl DiagnosticGuard<'_, '_> {
             "use `secondary_annotation_without_message` for annotations without a message"
         );
         let ann = Annotation::secondary(span).message(message);
-        self.diagnostic.as_mut().unwrap().annotate(ann);
-    }
-
-    /// Add a secondary annotation without a message at the given range.
-    pub(crate) fn secondary_annotation_without_message(&mut self, range: impl Ranged) {
-        let span = Span::from(self.context.source_file().clone()).with_range(range.range());
-        let ann = Annotation::secondary(span);
         self.diagnostic.as_mut().unwrap().annotate(ann);
     }
 }

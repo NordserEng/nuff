@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::Debug;
 
 use ruff_macros::CacheKey;
 use rustc_hash::FxHashMap;
@@ -7,7 +7,6 @@ use crate::preview::is_warn_on_unknown_selectors_enabled;
 use crate::rule_selector::RuleResolutionError;
 use crate::{Applicability, UnresolvedRuleSelector};
 use crate::{
-    display_settings,
     registry::{Rule, RuleSet},
     rule_selector::{PreviewOptions, Specificity},
 };
@@ -108,20 +107,6 @@ impl FixSafetyTable {
     }
 }
 
-impl Display for FixSafetyTable {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        display_settings! {
-            formatter = f,
-            namespace = "linter.safety_table",
-            fields = [
-                self.forced_safe,
-                self.forced_unsafe
-            ]
-        }
-        Ok(())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -194,14 +179,14 @@ mod tests {
     #[test]
     fn test_from_rule_selectors_specificity() {
         use Applicability::{Safe, Unsafe};
-        let table = mk_table(&["UP"], &["ALL", "UP001"]);
+        let table = mk_table(&["F"], &["ALL", "F401"]);
 
         assert_rules_safety(
             &table,
             &[
-                ("E101", Safe, Unsafe),
-                ("UP001", Safe, Unsafe),
-                ("UP003", Unsafe, Safe),
+                ("ASYNC100", Safe, Unsafe),
+                ("F401", Safe, Unsafe),
+                ("F811", Unsafe, Safe),
             ],
         );
     }
@@ -209,8 +194,8 @@ mod tests {
     #[test]
     fn test_from_rule_selectors_unsafe_over_safe() {
         use Applicability::{Safe, Unsafe};
-        let table = mk_table(&["UP"], &["UP"]);
+        let table = mk_table(&["F"], &["F"]);
 
-        assert_rules_safety(&table, &[("E101", Safe, Safe), ("UP001", Safe, Unsafe)]);
+        assert_rules_safety(&table, &[("ASYNC100", Safe, Safe), ("F401", Safe, Unsafe)]);
     }
 }

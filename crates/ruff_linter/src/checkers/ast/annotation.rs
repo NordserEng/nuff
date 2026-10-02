@@ -1,8 +1,6 @@
-use ruff_python_ast::{PythonVersion, StmtFunctionDef};
-use ruff_python_semantic::{ScopeKind, SemanticModel};
-
-use crate::rules::flake8_type_checking;
-use crate::settings::LinterSettings;
+use ruff_python_ast::helpers::{map_callable, map_subscript};
+use ruff_python_ast::{Expr, PythonVersion, StmtFunctionDef};
+use ruff_python_semantic::{Modules, ScopeKind, SemanticModel};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum AnnotationContext {
@@ -19,9 +17,6 @@ pub(super) enum AnnotationContext {
     ///
     /// Above, Python will evaluate `DataFrame` at runtime in order to add it to `__annotations__`.
     RuntimeEvaluated,
-    /// Python will evaluate the annotation at runtime, and it's required to be available at
-    /// runtime, as a library (like Pydantic) needs access to it.
-    RuntimeRequired,
     /// The annotation is only evaluated at type-checking time.
     TypingOnly,
 }
@@ -29,37 +24,7 @@ pub(super) enum AnnotationContext {
 impl AnnotationContext {
     /// Determine the [`AnnotationContext`] for an annotation based on the current scope of the
     /// semantic model.
-    pub(super) fn from_model(
-        semantic: &SemanticModel,
-        settings: &LinterSettings,
-        version: PythonVersion,
-    ) -> Self {
-        // If the annotation is in a class scope (e.g., an annotated assignment for a
-        // class field) or a function scope, and that class or function is marked as
-        // runtime-required, treat the annotation as runtime-required.
-        match semantic.current_scope().kind {
-            ScopeKind::Class(class_def)
-                if flake8_type_checking::helpers::runtime_required_class(
-                    class_def,
-                    &settings.flake8_type_checking.runtime_required_base_classes,
-                    &settings.flake8_type_checking.runtime_required_decorators,
-                    semantic,
-                ) =>
-            {
-                return Self::RuntimeRequired;
-            }
-            ScopeKind::Function(function_def)
-                if flake8_type_checking::helpers::runtime_required_function(
-                    function_def,
-                    &settings.flake8_type_checking.runtime_required_decorators,
-                    semantic,
-                ) =>
-            {
-                return Self::RuntimeRequired;
-            }
-            _ => {}
-        }
-
+    pub(super) fn from_model(semantic: &SemanticModel, version: PythonVersion) -> Self {
         // If `__future__` annotations are enabled or it's a stub file,
         // then annotations are never evaluated at runtime,
         // so we can treat them as typing-only.
@@ -81,22 +46,93 @@ impl AnnotationContext {
     }
 
     /// Determine the [`AnnotationContext`] to use for annotations in a function signature.
-    pub(super) fn from_function(
-        function_def: &StmtFunctionDef,
-        semantic: &SemanticModel,
-        settings: &LinterSettings,
-        version: PythonVersion,
-    ) -> Self {
-        if flake8_type_checking::helpers::runtime_required_function(
-            function_def,
-            &settings.flake8_type_checking.runtime_required_decorators,
-            semantic,
-        ) {
-            Self::RuntimeRequired
-        } else if semantic.future_annotations_or_stub() || version.defers_annotations() {
+    pub(super) fn from_function(semantic: &SemanticModel, version: PythonVersion) -> Self {
+        if semantic.future_annotations_or_stub() || version.defers_annotations() {
             Self::TypingOnly
         } else {
             Self::RuntimeEvaluated
         }
     }
+}
+
+/// Returns `true` if an annotation will be inspected at runtime by the `dataclasses` module.
+///
+/// Specifically, detects whether an annotation is to either `dataclasses.InitVar` or
+/// `typing.ClassVar` within a `@dataclass` class definition.
+///
+/// See: <https://docs.python.org/3/library/dataclasses.html#init-only-variables>
+pub(super) fn is_dataclass_meta_annotation(annotation: &Expr, semantic: &SemanticModel) -> bool {
+    if !semantic.seen_module(Modules::DATACLASSES) {
+        return false;
+    }
+
+    if let ScopeKind::Class(class_def) = semantic.current_scope().kind {
+        if class_def.decorator_list.iter().any(|decorator| {
+            semantic
+                .resolve_qualified_name(map_callable(&decorator.expression))
+                .is_some_and(|qualified_name| {
+                    matches!(qualified_name.segments(), ["dataclasses", "dataclass"])
+                })
+        }) {
+            return semantic
+                .resolve_qualified_name(map_subscript(annotation))
+                .is_some_and(|qualified_name| {
+                    matches!(
+                        qualified_name.segments(),
+                        ["dataclasses", "InitVar" | "KW_ONLY"]
+                    ) || semantic.match_typing_qualified_name(&qualified_name, "ClassVar")
+                });
+        }
+    }
+
+    false
+}
+
+/// Returns `true` if a function is registered as a `singledispatch` or `singledispatchmethod`
+/// implementation, like `_` in:
+/// ```python
+/// @singledispatch
+/// def fun(arg): ...
+///
+/// @fun.register
+/// def _(arg: int): ...
+/// ```
+pub(super) fn is_singledispatch_implementation(
+    function_def: &StmtFunctionDef,
+    semantic: &SemanticModel,
+) -> bool {
+    function_def.decorator_list.iter().any(|decorator| {
+        let Expr::Attribute(attribute) = &decorator.expression else {
+            return false;
+        };
+
+        if attribute.attr.as_str() != "register" {
+            return false;
+        }
+
+        let Some(id) = semantic.lookup_attribute(attribute.value.as_ref()) else {
+            return false;
+        };
+
+        let binding = semantic.binding(id);
+        let Some(function_def) = binding
+            .kind
+            .as_function_definition()
+            .map(|id| &semantic.scopes[*id])
+            .and_then(|scope| scope.kind.as_function())
+        else {
+            return false;
+        };
+
+        function_def.decorator_list.iter().any(|decorator| {
+            semantic
+                .resolve_qualified_name(&decorator.expression)
+                .is_some_and(|qualified_name| {
+                    matches!(
+                        qualified_name.segments(),
+                        ["functools", "singledispatch" | "singledispatchmethod"]
+                    )
+                })
+        })
+    })
 }

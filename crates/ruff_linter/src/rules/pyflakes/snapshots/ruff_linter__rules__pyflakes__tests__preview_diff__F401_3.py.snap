@@ -2,8 +2,8 @@
 source: crates/ruff_linter/src/rules/pyflakes/mod.rs
 ---
 --- Linter settings ---
--linter.preview = disabled
-+linter.preview = enabled
+-    preview: Disabled,
++    preview: Enabled,
 
 --- Summary ---
 Removed: 0

@@ -277,11 +277,10 @@ mod tests {
 
     use ruff_db::system::SystemPathBuf;
     use ruff_linter::UnresolvedRuleSelector;
-    use ruff_linter::line_width::LineLength;
     use ruff_linter::settings::types::PatternPrefixPair;
     use ruff_ranged_value::{ValueSource, ValueSourceGuard};
 
-    use crate::options::{Flake8BuiltinsOptions, LintCommonOptions, LintOptions, Options};
+    use crate::options::{LintCommonOptions, LintOptions, NuffOptions, Options};
     use crate::pyproject::{Pyproject, Tools, find_settings_toml, parse_pyproject_toml};
 
     #[test]
@@ -317,14 +316,14 @@ mod tests {
             r"
 [tool.black]
 [tool.ruff]
-line-length = 79
+respect-gitignore = false
 ",
         )?;
         assert_eq!(
             pyproject.tool,
             Some(Tools {
                 ruff: Some(Options {
-                    line_length: Some(LineLength::try_from(79).unwrap()),
+                    respect_gitignore: Some(false),
                     ..Options::default()
                 })
             })
@@ -351,7 +350,7 @@ exclude = ["foo.py"]
             r#"
 [tool.black]
 [tool.ruff.lint]
-select = ["E501"]
+select = ["F401"]
 "#,
         )?;
         assert_eq!(
@@ -360,7 +359,7 @@ select = ["E501"]
                 ruff: Some(Options {
                     lint: Some(LintOptions {
                         common: LintCommonOptions {
-                            select: Some(vec![UnresolvedRuleSelector::cli("E501")]),
+                            select: Some(vec![UnresolvedRuleSelector::cli("F401")]),
                             ..LintCommonOptions::default()
                         },
                         ..LintOptions::default()
@@ -374,8 +373,8 @@ select = ["E501"]
             r#"
 [tool.black]
 [tool.ruff.lint]
-extend-select = ["RUF100"]
-ignore = ["E501"]
+extend-select = ["ASYNC100"]
+ignore = ["F401"]
 "#,
         )?;
         assert_eq!(
@@ -384,8 +383,8 @@ ignore = ["E501"]
                 ruff: Some(Options {
                     lint: Some(LintOptions {
                         common: LintCommonOptions {
-                            extend_select: Some(vec![UnresolvedRuleSelector::cli("RUF100",)]),
-                            ignore: Some(vec![UnresolvedRuleSelector::cli("E501")]),
+                            extend_select: Some(vec![UnresolvedRuleSelector::cli("ASYNC100")]),
+                            ignore: Some(vec![UnresolvedRuleSelector::cli("F401")]),
                             ..LintCommonOptions::default()
                         },
                         ..LintOptions::default()
@@ -397,35 +396,20 @@ ignore = ["E501"]
 
         let pyproject: Pyproject = toml::from_str(
             r#"
-[tool.ruff.lint.flake8-builtins]
-builtins-allowed-modules = ["asyncio"]
-builtins-ignorelist = ["argparse", 'typing']
-builtins-strict-checking = true
-allowed-modules = ['sys']
-ignorelist = ["os", 'io']
-strict-checking = false
+[tool.ruff.lint.nuff]
+blocking-functions = ["app.slow"]
 "#,
         )?;
-
-        #[expect(deprecated)]
-        let expected = Flake8BuiltinsOptions {
-            builtins_allowed_modules: Some(vec!["asyncio".to_string()]),
-            allowed_modules: Some(vec!["sys".to_string()]),
-
-            builtins_ignorelist: Some(vec!["argparse".to_string(), "typing".to_string()]),
-            ignorelist: Some(vec!["os".to_string(), "io".to_string()]),
-
-            builtins_strict_checking: Some(true),
-            strict_checking: Some(false),
-        };
-
         assert_eq!(
             pyproject.tool,
             Some(Tools {
                 ruff: Some(Options {
                     lint: Some(LintOptions {
                         common: LintCommonOptions {
-                            flake8_builtins: Some(expected.clone()),
+                            nuff: Some(NuffOptions {
+                                blocking_functions: Some(vec!["app.slow".to_string()]),
+                                ..NuffOptions::default()
+                            }),
                             ..LintCommonOptions::default()
                         },
                         ..LintOptions::default()
@@ -435,21 +419,12 @@ strict-checking = false
             })
         );
 
-        let settings = expected.into_settings();
-
-        assert_eq!(settings.allowed_modules, vec!["sys".to_string()]);
-        assert_eq!(
-            settings.ignorelist,
-            vec!["os".to_string(), "io".to_string()]
-        );
-        assert!(!settings.strict_checking);
-
         assert!(
             toml::from_str::<Pyproject>(
                 r"
 [tool.black]
 [tool.ruff]
-line_length = 79
+respect_gitignore = false
 ",
             )
             .is_err()
@@ -471,53 +446,11 @@ select = ["E123"]
                 r"
 [tool.black]
 [tool.ruff]
-line-length = 79
+respect-gitignore = false
 other-attribute = 1
 ",
             )
             .is_err()
-        );
-
-        // Test value exceeding u16::MAX (65536) - should show clear error
-        let invalid_line_length_65536 = toml::from_str::<Pyproject>(
-            r"
-[tool.ruff]
-line-length = 65536
-",
-        )
-        .expect_err("Deserialization should have failed for line-length exceeding u16::MAX");
-
-        assert_eq!(
-            invalid_line_length_65536.message(),
-            "line-length must be between 1 and 65535 (got 65536)"
-        );
-
-        // Test value far exceeding u16::MAX (99_999) - should show clear error
-        let invalid_line_length_99999 = toml::from_str::<Pyproject>(
-            r"
-[tool.ruff]
-line-length = 99_999
-",
-        )
-        .expect_err("Deserialization should have failed for line-length far exceeding u16::MAX");
-
-        assert_eq!(
-            invalid_line_length_99999.message(),
-            "line-length must be between 1 and 65535 (got 99999)"
-        );
-
-        // Test negative value - should show clear error
-        let invalid_line_length_negative = toml::from_str::<Pyproject>(
-            r"
-[tool.ruff]
-line-length = -5
-",
-        )
-        .expect_err("Deserialization should have failed for negative line-length");
-
-        assert_eq!(
-            invalid_line_length_negative.message(),
-            "line-length must be between 1 and 65535 (got -5)"
         );
 
         Ok(())
@@ -531,7 +464,6 @@ line-length = -5
             ruff_toml,
             r#"
 [tool.ruff]
-line-length = 88
 extend-exclude = [
   "excluded_file.py",
   "migrations",
@@ -554,7 +486,6 @@ per-file-ignores = { "__init__.py" = ["F401"] }
         assert_eq!(
             config,
             Options {
-                line_length: Some(LineLength::try_from(88).unwrap()),
                 extend_exclude: Some(vec![
                     "excluded_file.py".to_string(),
                     "migrations".to_string(),

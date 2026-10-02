@@ -145,28 +145,6 @@ fn cmp_fix(name1: &str, name2: &str, fix1: &Fix, fix2: &Fix) -> std::cmp::Orderi
     }
     // Apply fixes in order of their start position.
     .then_with(|| fix1.min_start().cmp(&fix2.min_start()))
-    // Break ties in the event of overlapping rules, for some specific combinations.
-    .then_with(|| {
-        let rules = (name1, name2);
-        // Apply `MissingTrailingPeriod` fixes before `NewLineAfterLastParagraph` fixes.
-        let missing_trailing_period = Rule::MissingTrailingPeriod.name().as_str();
-        let newline_after_last_paragraph = Rule::NewLineAfterLastParagraph.name().as_str();
-        let if_else_instead_of_dict_get = Rule::IfElseBlockInsteadOfDictGet.name().as_str();
-        let if_else_instead_of_if_exp = Rule::IfElseBlockInsteadOfIfExp.name().as_str();
-        if rules == (missing_trailing_period, newline_after_last_paragraph) {
-            std::cmp::Ordering::Less
-        } else if rules == (newline_after_last_paragraph, missing_trailing_period) {
-            std::cmp::Ordering::Greater
-        }
-        // Apply `IfElseBlockInsteadOfDictGet` fixes before `IfElseBlockInsteadOfIfExp` fixes.
-        else if rules == (if_else_instead_of_dict_get, if_else_instead_of_if_exp) {
-            std::cmp::Ordering::Less
-        } else if rules == (if_else_instead_of_if_exp, if_else_instead_of_dict_get) {
-            std::cmp::Ordering::Greater
-        } else {
-            std::cmp::Ordering::Equal
-        }
-    })
 }
 
 #[cfg(test)]
@@ -176,7 +154,7 @@ mod tests {
     use ruff_text_size::{Ranged, TextSize};
 
     use crate::fix::{FixResult, apply_fixes};
-    use crate::rules::pycodestyle::rules::MissingNewlineAtEndOfFile;
+    use crate::rules::pyflakes::rules::BreakOutsideLoop;
     use crate::{Edit, Fix};
     use crate::{Locator, Violation};
     use ruff_db::diagnostic::Diagnostic;
@@ -189,7 +167,7 @@ mod tests {
         edit.into_iter()
             .map(|edit| {
                 // The choice of rule here is arbitrary.
-                let mut diagnostic = MissingNewlineAtEndOfFile.into_diagnostic(
+                let mut diagnostic = BreakOutsideLoop.into_diagnostic(
                     edit.range(),
                     &SourceFileBuilder::new(filename, source).finish(),
                 );

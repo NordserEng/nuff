@@ -1,37 +1,15 @@
 use crate::fix::codemods::CodegenStylist;
 use anyhow::{Result, bail};
 use libcst_native::{
-    Arg, Attribute, Call, Comparison, CompoundStatement, Dict, Expression, FormattedString,
-    FormattedStringContent, FormattedStringExpression, FunctionDef, GeneratorExp, If, Import,
-    ImportAlias, ImportFrom, ImportNames, IndentedBlock, Lambda, LazyImport, LazyImportFrom,
-    ListComp, Module, NameOrAttribute, SmallStatement, Statement, Suite, Tuple, With,
+    Call, Dict, Expression, ImportAlias, ImportFrom, ImportNames, LazyImportFrom, NameOrAttribute,
+    SmallStatement, Statement,
 };
 use ruff_python_codegen::Stylist;
-
-pub(crate) fn match_module(module_text: &str) -> Result<Module<'_>> {
-    match libcst_native::parse_module(module_text, None) {
-        Ok(module) => Ok(module),
-        Err(_) => bail!("Failed to extract CST from source"),
-    }
-}
 
 pub(crate) fn match_statement(statement_text: &str) -> Result<Statement<'_>> {
     match libcst_native::parse_statement(statement_text) {
         Ok(statement) => Ok(statement),
         Err(_) => bail!("Failed to extract statement from source"),
-    }
-}
-
-pub(crate) fn match_import<'a, 'b>(
-    statement: &'a mut Statement<'b>,
-) -> Result<(&'a mut Vec<ImportAlias<'b>>, bool)> {
-    let Statement::Simple(statement) = statement else {
-        bail!("Expected Statement::Simple")
-    };
-    match statement.body.first_mut() {
-        Some(SmallStatement::Import(Import { names, .. })) => Ok((names, false)),
-        Some(SmallStatement::LazyImport(LazyImport { names, .. })) => Ok((names, true)),
-        _ => bail!("Expected SmallStatement::Import | SmallStatement::LazyImport"),
     }
 }
 
@@ -66,14 +44,6 @@ pub(crate) fn match_aliases<'a, 'b>(
     }
 }
 
-pub(crate) fn match_call<'a, 'b>(expression: &'a Expression<'b>) -> Result<&'a Call<'b>> {
-    if let Expression::Call(call) = expression {
-        Ok(call)
-    } else {
-        bail!("Expected Expression::Call")
-    }
-}
-
 pub(crate) fn match_call_mut<'a, 'b>(
     expression: &'a mut Expression<'b>,
 ) -> Result<&'a mut Call<'b>> {
@@ -84,143 +54,11 @@ pub(crate) fn match_call_mut<'a, 'b>(
     }
 }
 
-pub(crate) fn match_comparison<'a, 'b>(
-    expression: &'a mut Expression<'b>,
-) -> Result<&'a mut Comparison<'b>> {
-    if let Expression::Comparison(comparison) = expression {
-        Ok(comparison)
-    } else {
-        bail!("Expected Expression::Comparison")
-    }
-}
-
 pub(crate) fn match_dict<'a, 'b>(expression: &'a mut Expression<'b>) -> Result<&'a mut Dict<'b>> {
     if let Expression::Dict(dict) = expression {
         Ok(dict)
     } else {
         bail!("Expected Expression::Dict")
-    }
-}
-
-pub(crate) fn match_attribute<'a, 'b>(
-    expression: &'a mut Expression<'b>,
-) -> Result<&'a mut Attribute<'b>> {
-    if let Expression::Attribute(attribute) = expression {
-        Ok(attribute)
-    } else {
-        bail!("Expected Expression::Attribute")
-    }
-}
-
-pub(crate) fn match_arg<'a, 'b>(call: &'a Call<'b>) -> Result<&'a Arg<'b>> {
-    if let Some(arg) = call.args.first() {
-        Ok(arg)
-    } else {
-        bail!("Expected Arg")
-    }
-}
-
-pub(crate) fn match_generator_exp<'a, 'b>(
-    expression: &'a Expression<'b>,
-) -> Result<&'a GeneratorExp<'b>> {
-    if let Expression::GeneratorExp(generator_exp) = expression {
-        Ok(generator_exp)
-    } else {
-        bail!("Expected Expression::GeneratorExp")
-    }
-}
-
-pub(crate) fn match_tuple<'a, 'b>(expression: &'a Expression<'b>) -> Result<&'a Tuple<'b>> {
-    if let Expression::Tuple(tuple) = expression {
-        Ok(tuple)
-    } else {
-        bail!("Expected Expression::Tuple")
-    }
-}
-
-pub(crate) fn match_list_comp<'a, 'b>(expression: &'a Expression<'b>) -> Result<&'a ListComp<'b>> {
-    if let Expression::ListComp(list_comp) = expression {
-        Ok(list_comp)
-    } else {
-        bail!("Expected Expression::ListComp")
-    }
-}
-
-pub(crate) fn match_lambda<'a, 'b>(expression: &'a Expression<'b>) -> Result<&'a Lambda<'b>> {
-    if let Expression::Lambda(lambda) = expression {
-        Ok(lambda)
-    } else {
-        bail!("Expected Expression::Lambda")
-    }
-}
-
-pub(crate) fn match_formatted_string<'a, 'b>(
-    expression: &'a mut Expression<'b>,
-) -> Result<&'a mut FormattedString<'b>> {
-    if let Expression::FormattedString(formatted_string) = expression {
-        Ok(formatted_string)
-    } else {
-        bail!("Expected Expression::FormattedString");
-    }
-}
-
-pub(crate) fn match_formatted_string_expression<'a, 'b>(
-    formatted_string_content: &'a mut FormattedStringContent<'b>,
-) -> Result<&'a mut FormattedStringExpression<'b>> {
-    if let FormattedStringContent::Expression(formatted_string_expression) =
-        formatted_string_content
-    {
-        Ok(formatted_string_expression)
-    } else {
-        bail!("Expected FormattedStringContent::Expression")
-    }
-}
-
-pub(crate) fn match_function_def<'a, 'b>(
-    statement: &'a mut Statement<'b>,
-) -> Result<&'a mut FunctionDef<'b>> {
-    if let Statement::Compound(compound) = statement {
-        if let CompoundStatement::FunctionDef(function_def) = compound {
-            Ok(function_def)
-        } else {
-            bail!("Expected CompoundStatement::FunctionDef")
-        }
-    } else {
-        bail!("Expected Statement::Compound")
-    }
-}
-
-pub(crate) fn match_indented_block<'a, 'b>(
-    suite: &'a mut Suite<'b>,
-) -> Result<&'a mut IndentedBlock<'b>> {
-    if let Suite::IndentedBlock(indented_block) = suite {
-        Ok(indented_block)
-    } else {
-        bail!("Expected Suite::IndentedBlock")
-    }
-}
-
-pub(crate) fn match_with<'a, 'b>(statement: &'a mut Statement<'b>) -> Result<&'a mut With<'b>> {
-    if let Statement::Compound(compound) = statement {
-        if let CompoundStatement::With(with) = compound {
-            Ok(with)
-        } else {
-            bail!("Expected CompoundStatement::With")
-        }
-    } else {
-        bail!("Expected Statement::Compound")
-    }
-}
-
-pub(crate) fn match_if<'a, 'b>(statement: &'a mut Statement<'b>) -> Result<&'a mut If<'b>> {
-    if let Statement::Compound(compound) = statement {
-        if let CompoundStatement::If(if_) = compound {
-            Ok(if_)
-        } else {
-            bail!("Expected CompoundStatement::If")
-        }
-    } else {
-        bail!("Expected Statement::Compound")
     }
 }
 
@@ -260,22 +98,4 @@ pub(crate) fn transform_expression(
     source_code.drain(0..1);
     source_code.drain(source_code.len() - 1..source_code.len());
     Ok(source_code)
-}
-
-/// Like [`transform_expression`], but operates on the source code of the expression, rather than
-/// the parsed [`Expression`]. This _shouldn't_ exist, but does to accommodate lifetime issues.
-pub(crate) fn transform_expression_text(
-    source_code: &str,
-    func: impl FnOnce(String) -> Result<String>,
-) -> Result<String> {
-    // Wrap the expression in parentheses.
-    let source_code = format!("({source_code})");
-
-    // Run the function on the expression.
-    let mut transformed = func(source_code)?;
-
-    // Drop the outer parentheses.
-    transformed.drain(0..1);
-    transformed.drain(transformed.len() - 1..transformed.len());
-    Ok(transformed)
 }

@@ -13,7 +13,7 @@ use args::GlobalConfigArgs;
 use ruff_db::diagnostic::{Diagnostic, Severity};
 use ruff_linter::logging::set_up_logging;
 use ruff_linter::settings::flags::FixMode;
-use ruff_linter::{fs, warn_user, warn_user_once};
+use ruff_linter::{fs, warn_user_once};
 use ruff_workspace::Settings;
 
 use crate::args::{Args, CheckCommand, Command, TerminalColor};
@@ -162,7 +162,7 @@ pub fn check(args: CheckCommand, global_options: GlobalConfigArgs) -> Result<Exi
     if cache {
         // `--no-cache` doesn't respect code changes, and so is often confusing during
         // development.
-        warn_user!("Detected debug build without --no-cache.");
+        ruff_linter::warn_user!("Detected debug build without --no-cache.");
     }
 
     let printer = Printer::new(

@@ -20,10 +20,10 @@ use ruff_macros::CacheKey;
 use ruff_python_ast::{self as ast, PySourceType, SourceType};
 
 use crate::Applicability;
+use crate::fs;
 use crate::preview::is_warn_on_unknown_selectors_enabled;
 use crate::registry::RuleSet;
 use crate::rule_selector::UnresolvedRuleSelector;
-use crate::{display_settings, fs};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, EnumIter)]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
@@ -709,13 +709,6 @@ impl IdentifierPattern {
         }
     }
 
-    pub(crate) fn matches(&self, candidate: &str) -> bool {
-        match self {
-            Self::Literal(literal) => literal == candidate,
-            Self::Glob(pattern) => pattern.matches(candidate),
-        }
-    }
-
     pub(crate) fn as_str(&self) -> &str {
         match self {
             Self::Literal(literal) => literal,
@@ -772,24 +765,6 @@ where
         self.basename_matcher.cache_key(state);
         self.negated.cache_key(state);
         self.data.cache_key(state);
-    }
-}
-
-impl<T> Display for CompiledPerFile<T>
-where
-    T: Display,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        display_settings! {
-            formatter = f,
-            fields = [
-                self.absolute_matcher | globmatcher,
-                self.basename_matcher | globmatcher,
-                self.negated,
-                self.data,
-            ]
-        }
-        Ok(())
     }
 }
 
@@ -911,24 +886,6 @@ impl<T: std::fmt::Debug> CompiledPerFileList<T> {
     }
 }
 
-impl<T> Display for CompiledPerFileList<T>
-where
-    T: Display,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if self.inner.is_empty() {
-            write!(f, "{{}}")?;
-        } else {
-            writeln!(f, "{{")?;
-            for value in &self.inner {
-                writeln!(f, "\t{value}")?;
-            }
-            write!(f, "}}")?;
-        }
-        Ok(())
-    }
-}
-
 #[derive(Debug, Clone, CacheKey, Default)]
 pub struct CompiledPerFileIgnoreList(CompiledPerFileList<RuleSet>);
 
@@ -981,12 +938,6 @@ impl Deref for CompiledPerFileIgnoreList {
     }
 }
 
-impl Display for CompiledPerFileIgnoreList {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
 /// Contains the target Python version for a given glob pattern.
 ///
 /// See [`PerFile`] for details of the representation.
@@ -1024,40 +975,11 @@ impl CompiledPerFileTargetVersionList {
     }
 }
 
-impl Display for CompiledPerFileTargetVersionList {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::IdentifierPattern;
 
     #[test]
     fn default_python_version_works() {
         super::PythonVersion::default();
-    }
-
-    #[test]
-    fn identifier_pattern_matches_literals_exactly() {
-        let pattern = IdentifierPattern::new("package.module").unwrap();
-
-        assert!(pattern.matches("package.module"));
-        assert!(!pattern.matches("package"));
-        assert!(!pattern.matches("package.module.extra"));
-    }
-
-    #[test]
-    fn identifier_pattern_preserves_glob_matching() {
-        let pattern = IdentifierPattern::new("package.*").unwrap();
-
-        assert!(pattern.matches("package.module"));
-        assert!(!pattern.matches("other.module"));
-    }
-
-    #[test]
-    fn identifier_pattern_rejects_invalid_globs() {
-        assert!(IdentifierPattern::new("package[").is_err());
     }
 }

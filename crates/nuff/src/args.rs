@@ -12,7 +12,6 @@ use clap::builder::{TypedValueParser, ValueParserFactory};
 use itertools::Itertools;
 use path_absolutize::path_dedot;
 use regex::Regex;
-use ruff_linter::line_width::LineLength;
 use ruff_linter::logging::LogLevel;
 use ruff_linter::settings::types::{
     ExtensionPair, FilePattern, OutputFormat, PatternPrefixPair, PerFileIgnore, PreviewMode,
@@ -23,7 +22,7 @@ use ruff_options_metadata::{OptionEntry, OptionsMetadata};
 use ruff_python_ast as ast;
 use ruff_ranged_value::{ValueSource, ValueSourceGuard};
 use ruff_workspace::configuration::{Configuration, RuleSelection};
-use ruff_workspace::options::{Options, PycodestyleOptions};
+use ruff_workspace::options::Options;
 use ruff_workspace::resolver::ConfigurationTransformer;
 use rustc_hash::FxHashMap;
 use toml;
@@ -300,9 +299,6 @@ pub struct CheckCommand {
     force_exclude: bool,
     #[clap(long, overrides_with("force_exclude"), hide = true)]
     no_force_exclude: bool,
-    /// Set the line-length for length-associated rules and automatic formatting.
-    #[arg(long, help_heading = "Rule configuration", hide = true)]
-    line_length: Option<LineLength>,
     /// Regular expression matching the name of dummy variables.
     #[arg(long, help_heading = "Rule configuration", hide = true)]
     dummy_variable_rgx: Option<Regex>,
@@ -505,7 +501,6 @@ impl CheckCommand {
             extend_unfixable: self.extend_unfixable,
             fixable: self.fixable,
             ignore: self.ignore,
-            line_length: self.line_length,
             per_file_ignores: self.per_file_ignores,
             preview: resolve_bool_arg(self.preview, self.no_preview).map(PreviewMode::from),
             respect_gitignore: resolve_bool_arg(self.respect_gitignore, self.no_respect_gitignore),
@@ -770,7 +765,6 @@ struct ExplicitConfigOverrides {
     extend_unfixable: Option<Vec<UnresolvedRuleSelector>>,
     fixable: Option<Vec<UnresolvedRuleSelector>>,
     ignore: Option<Vec<UnresolvedRuleSelector>>,
-    line_length: Option<LineLength>,
     per_file_ignores: Option<Vec<PatternPrefixPair>>,
     extend_per_file_ignores: Option<Vec<PatternPrefixPair>>,
     preview: Option<PreviewMode>,
@@ -843,13 +837,6 @@ impl ConfigurationTransformer for ExplicitConfigOverrides {
         }
         if let Some(force_exclude) = &self.force_exclude {
             config.force_exclude = Some(*force_exclude);
-        }
-        if let Some(line_length) = self.line_length {
-            config.line_length = Some(line_length);
-            config.lint.pycodestyle = Some(PycodestyleOptions {
-                max_line_length: Some(line_length),
-                ..config.lint.pycodestyle.unwrap_or_default()
-            });
         }
         if let Some(preview) = &self.preview {
             config.preview = Some(*preview);

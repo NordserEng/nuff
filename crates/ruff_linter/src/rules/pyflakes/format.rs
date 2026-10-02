@@ -27,7 +27,6 @@ pub(crate) struct FormatSummary {
     pub(crate) autos: Vec<usize>,
     pub(crate) indices: Vec<usize>,
     pub(crate) keywords: Vec<Name>,
-    pub(crate) has_nested_parts: bool,
 }
 
 impl TryFrom<&str> for FormatSummary {
@@ -39,7 +38,6 @@ impl TryFrom<&str> for FormatSummary {
         let mut autos = Vec::new();
         let mut indices = Vec::new();
         let mut keywords = Vec::new();
-        let mut has_nested_parts = false;
 
         for format_part in &format_string.format_parts {
             let FormatPart::Field {
@@ -68,7 +66,6 @@ impl TryFrom<&str> for FormatSummary {
                     FieldType::Index(i) => indices.push(i),
                     FieldType::Keyword(k) => keywords.push(Name::from(k)),
                 }
-                has_nested_parts = true;
             }
         }
 
@@ -76,7 +73,6 @@ impl TryFrom<&str> for FormatSummary {
             autos,
             indices,
             keywords,
-            has_nested_parts,
         })
     }
 }
@@ -101,7 +97,6 @@ mod tests {
         assert_eq!(format_summary.autos, expected_autos);
         assert_eq!(format_summary.indices, expected_indices);
         assert_eq!(format_summary.keywords, expected_keywords);
-        assert!(!format_summary.has_nested_parts);
     }
 
     #[test]
@@ -120,7 +115,6 @@ mod tests {
         assert_eq!(format_summary.autos, expected_autos);
         assert_eq!(format_summary.indices, expected_indices);
         assert_eq!(format_summary.keywords, expected_keywords);
-        assert!(format_summary.has_nested_parts);
     }
 
     #[test]

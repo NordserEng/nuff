@@ -32,8 +32,4 @@ impl Visit<'_> {
 #[derive(Debug, Default)]
 pub(crate) struct Analyze {
     pub(crate) scopes: Vec<ScopeId>,
-    pub(crate) lambdas: Vec<Snapshot>,
-    pub(crate) for_loops: Vec<Snapshot>,
-    pub(crate) with_statements: Vec<Snapshot>,
-    pub(crate) comprehensions: Vec<Snapshot>,
 }

@@ -16,25 +16,15 @@ use ruff_python_index::Indexer;
 use ruff_python_parser::{ParseError, ParseOptions, Parsed, UnsupportedSyntaxError};
 
 use crate::checkers::ast::{LazySourceFile, LintContext, check_ast};
-use crate::checkers::filesystem::check_file_path;
-use crate::checkers::imports::check_imports;
 use crate::checkers::noqa::check_noqa;
-use crate::checkers::physical_lines::check_physical_lines;
-use crate::checkers::tokens::check_tokens;
 use crate::directives::Directives;
-use crate::doc_lines::{doc_lines_from_ast, doc_lines_from_tokens};
 use crate::fix::{FixResult, fix_file};
-use crate::noqa::add_suppression;
 use crate::package::PackageRoot;
 use crate::preview::is_py315_support_enabled;
-use crate::registry::Rule;
-#[cfg(any(feature = "test-rules", test))]
-use crate::rules::ruff::rules::test_rules::{self, TEST_RULES, TestRule};
 use crate::settings::types::UnsafeFixes;
 use crate::settings::{LinterSettings, TargetVersion, flags};
 use crate::source_kind::SourceKind;
-use crate::suppression::Suppressions;
-use crate::{Locator, SuppressionKind, directives, fs, warn_user_once};
+use crate::{Locator, directives, fs, warn_user_once};
 
 pub(crate) mod float;
 
@@ -132,7 +122,6 @@ pub fn check_path(
     source_type: PySourceType,
     parsed: &Parsed<ModModule>,
     target_version: TargetVersion,
-    suppressions: &Suppressions,
 ) -> Vec<Diagnostic> {
     // Aggregate all diagnostics.
     let mut context = LintContext::new(path, locator.contents(), settings);
@@ -140,61 +129,6 @@ pub fn check_path(
     // Aggregate all semantic syntax errors.
     let mut semantic_syntax_errors = vec![];
 
-    let tokens = parsed.tokens();
-    let comment_ranges = indexer.comment_ranges();
-
-    // Collect doc lines. This requires a rare mix of tokens (for comments) and AST
-    // (for docstrings), which demands special-casing at this level.
-    let use_doc_lines = context.is_rule_enabled(Rule::DocLineTooLong);
-    let mut doc_lines = vec![];
-    if use_doc_lines {
-        doc_lines.extend(doc_lines_from_tokens(tokens));
-    }
-
-    // Run the token-based rules.
-    if context
-        .iter_enabled_rules()
-        .any(|rule_code| rule_code.lint_source().is_tokens())
-    {
-        check_tokens(
-            tokens,
-            path,
-            locator,
-            indexer,
-            stylist,
-            source_type,
-            source_kind.as_ipy_notebook().map(Notebook::cell_offsets),
-            &mut context,
-        );
-    }
-
-    // Run the filesystem-based rules.
-    if context
-        .iter_enabled_rules()
-        .any(|rule_code| rule_code.lint_source().is_filesystem())
-    {
-        check_file_path(
-            path,
-            package,
-            locator,
-            comment_ranges,
-            settings,
-            target_version.linter_version(),
-            &context,
-        );
-    }
-
-    // Run the logical line-based rules.
-    if context
-        .iter_enabled_rules()
-        .any(|rule_code| rule_code.lint_source().is_logical_lines())
-    {
-        crate::checkers::logical_lines::check_logical_lines(
-            tokens, locator, indexer, stylist, settings, &context,
-        );
-    }
-
-    // Run the AST-based rules only if there are no syntax errors.
     if parsed.has_valid_syntax() {
         let cell_offsets = source_kind.as_ipy_notebook().map(Notebook::cell_offsets);
         let notebook_index = source_kind.as_ipy_notebook().map(Notebook::index);
@@ -215,141 +149,19 @@ pub fn check_path(
             target_version,
             &context,
         ));
-
-        let use_imports = !directives.isort.skip_file
-            && context
-                .iter_enabled_rules()
-                .any(|rule_code| rule_code.lint_source().is_imports());
-        if use_imports || use_doc_lines {
-            if use_imports {
-                check_imports(
-                    parsed,
-                    locator,
-                    indexer,
-                    &directives.isort,
-                    settings,
-                    stylist,
-                    package,
-                    source_type,
-                    cell_offsets,
-                    target_version.linter_version(),
-                    &context,
-                );
-            }
-            if use_doc_lines {
-                doc_lines.extend(doc_lines_from_ast(parsed.suite(), locator));
-            }
-        }
     }
 
-    // Deduplicate and reorder any doc lines.
-    if use_doc_lines {
-        doc_lines.sort_unstable();
-        doc_lines.dedup();
-    }
-
-    // Run the lines-based rules.
-    if context
-        .iter_enabled_rules()
-        .any(|rule_code| rule_code.lint_source().is_physical_lines())
-    {
-        check_physical_lines(locator, stylist, indexer, &doc_lines, settings, &context);
-    }
-
-    // Raise violations for internal test rules
-    #[cfg(any(feature = "test-rules", test))]
-    {
-        for test_rule in TEST_RULES {
-            if !context.is_rule_enabled(*test_rule) {
-                continue;
-            }
-            match test_rule {
-                Rule::StableTestRule => {
-                    test_rules::StableTestRule::diagnostic(locator, comment_ranges, &context);
-                }
-                Rule::StableTestRuleSafeFix => {
-                    test_rules::StableTestRuleSafeFix::diagnostic(
-                        locator,
-                        comment_ranges,
-                        &context,
-                    );
-                }
-                Rule::StableTestRuleUnsafeFix => test_rules::StableTestRuleUnsafeFix::diagnostic(
-                    locator,
-                    comment_ranges,
-                    &context,
-                ),
-                Rule::StableTestRuleDisplayOnlyFix => {
-                    test_rules::StableTestRuleDisplayOnlyFix::diagnostic(
-                        locator,
-                        comment_ranges,
-                        &context,
-                    );
-                }
-                Rule::PreviewTestRule => {
-                    test_rules::PreviewTestRule::diagnostic(locator, comment_ranges, &context);
-                }
-                Rule::DeprecatedTestRule => {
-                    test_rules::DeprecatedTestRule::diagnostic(locator, comment_ranges, &context);
-                }
-                Rule::AnotherDeprecatedTestRule => {
-                    test_rules::AnotherDeprecatedTestRule::diagnostic(
-                        locator,
-                        comment_ranges,
-                        &context,
-                    );
-                }
-                Rule::RemovedTestRule => {
-                    test_rules::RemovedTestRule::diagnostic(locator, comment_ranges, &context);
-                }
-                Rule::AnotherRemovedTestRule => test_rules::AnotherRemovedTestRule::diagnostic(
-                    locator,
-                    comment_ranges,
-                    &context,
-                ),
-                Rule::RedirectedToTestRule => {
-                    test_rules::RedirectedToTestRule::diagnostic(locator, comment_ranges, &context);
-                }
-                Rule::RedirectedFromTestRule => test_rules::RedirectedFromTestRule::diagnostic(
-                    locator,
-                    comment_ranges,
-                    &context,
-                ),
-                Rule::RedirectedFromPrefixTestRule => {
-                    test_rules::RedirectedFromPrefixTestRule::diagnostic(
-                        locator,
-                        comment_ranges,
-                        &context,
-                    );
-                }
-                Rule::PanicyTestRule => {
-                    test_rules::PanicyTestRule::diagnostic(locator, comment_ranges, &context);
-                }
-                _ => unreachable!("All test rules must have an implementation"),
-            }
-        }
-    }
-
-    // Enforce `noqa` directives.
-    if noqa.is_enabled()
-        || context
-            .iter_enabled_rules()
-            .any(|rule_code| rule_code.lint_source().is_noqa())
-    {
+    if noqa.is_enabled() {
         let ignored = check_noqa(
             &mut context,
             path,
             locator,
-            comment_ranges,
+            indexer.comment_ranges(),
             &directives.noqa_line_for,
-            parsed.has_valid_syntax(),
             settings,
-            suppressions,
         );
-        if noqa.is_enabled() {
-            for index in ignored.iter().rev() {
-                context.as_mut_vec().swap_remove(*index);
-            }
+        for index in ignored.iter().rev() {
+            context.as_mut_vec().swap_remove(*index);
         }
     }
 
@@ -373,75 +185,6 @@ pub fn check_path(
 }
 
 pub(crate) const MAX_ITERATIONS: usize = 100;
-
-/// Add any missing suppression comments to the source code at the given `Path`.
-pub fn add_suppressions_to_path(
-    path: &Path,
-    package: Option<PackageRoot<'_>>,
-    source_kind: &SourceKind,
-    source_type: PySourceType,
-    settings: &LinterSettings,
-    reason: Option<&str>,
-    suppression_kind: SuppressionKind,
-) -> Result<usize> {
-    // Parse once.
-    let target_version = settings.resolve_target_version(path);
-    let parsed = parse_unchecked_source(source_kind, source_type, target_version.parser_version());
-
-    // Map row and column locations to byte slices (lazily).
-    let locator = Locator::new(source_kind.source_code());
-
-    // Detect the current code style (lazily).
-    let stylist = Stylist::from_tokens(parsed.tokens(), locator.contents());
-
-    // Extra indices from the code.
-    let indexer = Indexer::from_tokens(parsed.tokens(), locator.contents());
-
-    // Extract the `# noqa` and `# isort: skip` directives from the source.
-    let directives = directives::extract_directives(
-        parsed.tokens(),
-        directives::Flags::from_settings(settings),
-        &locator,
-        &indexer,
-    );
-
-    // Parse range suppression comments
-    let suppressions =
-        Suppressions::from_tokens(locator.contents(), parsed.tokens(), &indexer, settings);
-
-    // Generate diagnostics, ignoring any existing `noqa` directives.
-    let diagnostics = check_path(
-        path,
-        package,
-        &locator,
-        &stylist,
-        &indexer,
-        &directives,
-        settings,
-        flags::Noqa::Disabled,
-        source_kind,
-        source_type,
-        &parsed,
-        target_version,
-        &suppressions,
-    );
-
-    // Add any missing suppression comments.
-    // TODO(dhruvmanila): Add support for Jupyter Notebooks
-    add_suppression(
-        path,
-        &diagnostics,
-        &locator,
-        indexer.comment_ranges(),
-        &settings.external,
-        &directives.noqa_line_for,
-        stylist.line_ending(),
-        reason,
-        &suppressions,
-        suppression_kind,
-        settings.preview,
-    )
-}
 
 /// Generate a [`Diagnostic`] for each diagnostic triggered by the given source code.
 pub fn lint_only(
@@ -475,16 +218,7 @@ pub fn lint_only(
     let indexer = Indexer::from_tokens(parsed.tokens(), locator.contents());
 
     // Extract the `# noqa` and `# isort: skip` directives from the source.
-    let directives = directives::extract_directives(
-        parsed.tokens(),
-        directives::Flags::from_settings(settings),
-        &locator,
-        &indexer,
-    );
-
-    // Parse range suppression comments
-    let suppressions =
-        Suppressions::from_tokens(locator.contents(), parsed.tokens(), &indexer, settings);
+    let directives = directives::extract_directives(parsed.tokens(), &locator, &indexer);
 
     // Generate diagnostics.
     let diagnostics = check_path(
@@ -500,7 +234,6 @@ pub fn lint_only(
         source_type,
         &parsed,
         target_version,
-        &suppressions,
     );
 
     LinterResult {
@@ -593,16 +326,7 @@ pub fn lint_fix<'a>(
         let indexer = Indexer::from_tokens(parsed.tokens(), locator.contents());
 
         // Extract the `# noqa` and `# isort: skip` directives from the source.
-        let directives = directives::extract_directives(
-            parsed.tokens(),
-            directives::Flags::from_settings(settings),
-            &locator,
-            &indexer,
-        );
-
-        // Parse range suppression comments
-        let suppressions =
-            Suppressions::from_tokens(locator.contents(), parsed.tokens(), &indexer, settings);
+        let directives = directives::extract_directives(parsed.tokens(), &locator, &indexer);
 
         // Generate diagnostics.
         let diagnostics = check_path(
@@ -618,7 +342,6 @@ pub fn lint_fix<'a>(
             source_type,
             &parsed,
             target_version,
-            &suppressions,
         );
 
         if iterations == 0 {
@@ -815,7 +538,7 @@ mod tests {
     use ruff_python_ast::{PySourceType, PythonVersion};
     use ruff_python_codegen::Stylist;
     use ruff_python_index::Indexer;
-    use ruff_python_trivia::textwrap::dedent;
+
     use test_case::test_case;
 
     use ruff_db::diagnostic::Diagnostic;
@@ -825,30 +548,12 @@ mod tests {
     use crate::registry::Rule;
     use crate::settings::LinterSettings;
     use crate::source_kind::SourceKind;
-    use crate::suppression::Suppressions;
-    use crate::test::{TestedNotebook, assert_notebook_path, test_contents, test_snippet};
+    use crate::test::{TestedNotebook, assert_notebook_path, test_contents};
     use crate::{Locator, assert_diagnostics, directives, settings};
 
     /// Construct a path to a Jupyter notebook in the `resources/test/fixtures/jupyter` directory.
     fn notebook_path(path: impl AsRef<Path>) -> std::path::PathBuf {
         Path::new("../ruff_notebook/resources/test/fixtures/jupyter").join(path)
-    }
-
-    #[test]
-    fn test_import_sorting() -> Result<(), NotebookError> {
-        let actual = notebook_path("isort.ipynb");
-        let expected = notebook_path("isort_expected.ipynb");
-        let TestedNotebook {
-            diagnostics,
-            source_notebook,
-            ..
-        } = assert_notebook_path(
-            &actual,
-            expected,
-            &LinterSettings::for_rule(Rule::UnsortedImports),
-        )?;
-        assert_diagnostics!(diagnostics, actual, source_notebook);
-        Ok(())
     }
 
     #[test]
@@ -993,14 +698,7 @@ mod tests {
         let locator = Locator::new(source_kind.source_code());
         let stylist = Stylist::from_tokens(parsed.tokens(), locator.contents());
         let indexer = Indexer::from_tokens(parsed.tokens(), locator.contents());
-        let directives = directives::extract_directives(
-            parsed.tokens(),
-            directives::Flags::from_settings(settings),
-            &locator,
-            &indexer,
-        );
-        let suppressions =
-            Suppressions::from_tokens(locator.contents(), parsed.tokens(), &indexer, settings);
+        let directives = directives::extract_directives(parsed.tokens(), &locator, &indexer);
         let mut diagnostics = check_path(
             path,
             None,
@@ -1014,7 +712,6 @@ mod tests {
             source_type,
             &parsed,
             target_version,
-            &suppressions,
         );
         diagnostics.sort_by(Diagnostic::ruff_start_ordering);
         diagnostics
@@ -1097,17 +794,6 @@ mod tests {
     #[test_case(Rule::LateFutureImport, Path::new("late_future_import.py"))]
     #[test_case(Rule::YieldOutsideFunction, Path::new("yield_scope.py"))]
     #[test_case(Rule::ReturnOutsideFunction, Path::new("return_outside_function.py"))]
-    #[test_case(
-        Rule::LoadBeforeGlobalDeclaration,
-        Path::new("load_before_global_declaration.py")
-    )]
-    #[test_case(Rule::AwaitOutsideAsync, Path::new("await_outside_async_function.py"))]
-    #[test_case(Rule::AwaitOutsideAsync, Path::new("async_comprehension.py"))]
-    #[test_case(
-        Rule::YieldFromInAsyncFunction,
-        Path::new("yield_from_in_async_function.py")
-    )]
-    #[test_case(Rule::ReturnInGenerator, Path::new("return_in_generator.py"))]
     fn test_syntax_errors(rule: Rule, path: &Path) -> Result<()> {
         let snapshot = path.to_string_lossy().to_string();
         let path = Path::new("resources/test/fixtures/syntax_errors").join(path);
@@ -1141,135 +827,5 @@ mod tests {
         assert_diagnostics!(diagnostics, path, source_notebook);
 
         Ok(())
-    }
-
-    const PYI019_EXAMPLE: &str = r#"
-		from typing import TypeVar
-
-		T = TypeVar("T", bound="_NiceReprEnum")
-
-		class C:
-			def __new__(cls: type[T]) -> T:
-                return cls
-		"#;
-
-    #[test_case(
-        "pyi019_adds_typing_extensions",
-		PYI019_EXAMPLE,
-		&LinterSettings {
-			unresolved_target_version: PythonVersion::PY310.into(),
-			typing_extensions: true,
-			..LinterSettings::for_rule(Rule::CustomTypeVarForSelf)
-		}
-    )]
-    #[test_case(
-        "pyi019_does_not_add_typing_extensions",
-		PYI019_EXAMPLE,
-		&LinterSettings {
-			unresolved_target_version: PythonVersion::PY310.into(),
-			typing_extensions: false,
-			..LinterSettings::for_rule(Rule::CustomTypeVarForSelf)
-		}
-    )]
-    #[test_case(
-        "pyi019_adds_typing_without_extensions_disabled",
-		PYI019_EXAMPLE,
-		&LinterSettings {
-			unresolved_target_version: PythonVersion::PY311.into(),
-			typing_extensions: true,
-			..LinterSettings::for_rule(Rule::CustomTypeVarForSelf)
-		}
-    )]
-    #[test_case(
-        "pyi019_adds_typing_with_extensions_disabled",
-		PYI019_EXAMPLE,
-		&LinterSettings {
-			unresolved_target_version: PythonVersion::PY311.into(),
-			typing_extensions: false,
-			..LinterSettings::for_rule(Rule::CustomTypeVarForSelf)
-		}
-    )]
-    #[test_case(
-        "pyi034_disabled",
-		"
-		class C:
-			def __new__(cls) -> C: ...
-		",
-		&LinterSettings {
-			unresolved_target_version: PythonVersion { major: 3, minor: 10 }.into(),
-			typing_extensions: false,
-			..LinterSettings::for_rule(Rule::NonSelfReturnType)
-		}
-    )]
-    #[test_case(
-        "fast002_disabled",
-		r#"
-		from fastapi import Depends, FastAPI
-
-		app = FastAPI()
-
-		@app.get("/items/")
-		async def read_items(commons: dict = Depends(common_parameters)):
-			return commons
-		"#,
-		&LinterSettings {
-			unresolved_target_version: PythonVersion { major: 3, minor: 8 }.into(),
-			typing_extensions: false,
-			..LinterSettings::for_rule(Rule::FastApiNonAnnotatedDependency)
-		}
-    )]
-    fn test_disabled_typing_extensions(name: &str, contents: &str, settings: &LinterSettings) {
-        let snapshot = format!("disabled_typing_extensions_{name}");
-        let diagnostics = test_snippet(contents, settings);
-        assert_diagnostics!(snapshot, diagnostics);
-    }
-
-    #[test_case(
-		"pyi026_disabled",
-		"Vector = list[float]",
-		&LinterSettings {
-			unresolved_target_version: PythonVersion { major: 3, minor: 9 }.into(),
-			typing_extensions: false,
-			..LinterSettings::for_rule(Rule::TypeAliasWithoutAnnotation)
-		}
-	)]
-    fn test_disabled_typing_extensions_pyi(name: &str, contents: &str, settings: &LinterSettings) {
-        let snapshot = format!("disabled_typing_extensions_pyi_{name}");
-        let path = Path::new("<filename>.pyi");
-        let contents = dedent(contents);
-        let diagnostics = test_contents(
-            &SourceKind::Python {
-                code: contents.into_owned(),
-                is_stub: true,
-            },
-            path,
-            settings,
-        )
-        .0;
-        assert_diagnostics!(snapshot, diagnostics);
-    }
-
-    #[test_case(
-        "on_line_one",
-        r#"#!/usr/bin/env python #noqa:D100
-"#
-    )]
-    #[test_case(
-        "on_line_two",
-        r#"#!/usr/bin/env python
-#noqa: D100
-"#
-    )]
-    #[test_case(
-        "on_line_three",
-        r#"#!/usr/bin/env python
-
-#noqa: D100"#
-    )]
-    fn test_shebang_noqa(name: &str, contents: &str) {
-        let snapshot = format!("shebang_noqa_{name}");
-        let settings = LinterSettings::for_rule(Rule::UndocumentedPublicModule);
-        let diagnostics = test_snippet(contents, &settings);
-        assert_diagnostics!(snapshot, diagnostics);
     }
 }

@@ -67,18 +67,18 @@ impl RuleSet {
     ///
     /// ```rust
     /// # use ruff_linter::registry::{Rule, RuleSet};
-    /// let set_1 = RuleSet::from_rules(&[Rule::AmbiguousFunctionName, Rule::AnyType]);
+    /// let set_1 = RuleSet::from_rules(&[Rule::UnusedImport, Rule::UndefinedName]);
     /// let set_2 = RuleSet::from_rules(&[
-    ///     Rule::BadQuotesInlineString,
-    ///     Rule::BooleanPositionalValueInCall,
+    ///     Rule::UnusedVariable,
+    ///     Rule::RedefinedWhileUnused,
     /// ]);
     ///
     /// let union = set_1.union(&set_2);
     ///
-    /// assert!(union.contains(Rule::AmbiguousFunctionName));
-    /// assert!(union.contains(Rule::AnyType));
-    /// assert!(union.contains(Rule::BadQuotesInlineString));
-    /// assert!(union.contains(Rule::BooleanPositionalValueInCall));
+    /// assert!(union.contains(Rule::UnusedImport));
+    /// assert!(union.contains(Rule::UndefinedName));
+    /// assert!(union.contains(Rule::UnusedVariable));
+    /// assert!(union.contains(Rule::RedefinedWhileUnused));
     /// ```
     #[must_use]
     pub const fn union(mut self, other: &Self) -> Self {
@@ -97,13 +97,13 @@ impl RuleSet {
     /// ## Examples
     /// ```rust
     /// # use ruff_linter::registry::{Rule, RuleSet};
-    /// let set_1 = RuleSet::from_rules(&[Rule::AmbiguousFunctionName, Rule::AnyType]);
-    /// let set_2 = RuleSet::from_rules(&[Rule::AmbiguousFunctionName, Rule::Debugger]);
+    /// let set_1 = RuleSet::from_rules(&[Rule::UnusedImport, Rule::UndefinedName]);
+    /// let set_2 = RuleSet::from_rules(&[Rule::UnusedImport, Rule::IfTuple]);
     ///
     /// let subtract = set_1.subtract(&set_2);
     ///
-    /// assert!(subtract.contains(Rule::AnyType));
-    /// assert!(!subtract.contains(Rule::AmbiguousFunctionName));
+    /// assert!(subtract.contains(Rule::UndefinedName));
+    /// assert!(!subtract.contains(Rule::UnusedImport));
     /// ```
     #[must_use]
     pub const fn subtract(mut self, other: &Self) -> Self {
@@ -122,16 +122,16 @@ impl RuleSet {
     /// ## Examples
     /// ```rust
     /// # use ruff_linter::registry::{Rule, RuleSet};
-    /// let set_1 = RuleSet::from_rules(&[Rule::AmbiguousFunctionName, Rule::AnyType]);
+    /// let set_1 = RuleSet::from_rules(&[Rule::UnusedImport, Rule::UndefinedName]);
     ///
     /// assert!(set_1.intersects(&RuleSet::from_rules(&[
-    ///     Rule::AnyType,
-    ///     Rule::BadQuotesInlineString
+    ///     Rule::UndefinedName,
+    ///     Rule::UnusedVariable
     /// ])));
     ///
     /// assert!(!set_1.intersects(&RuleSet::from_rules(&[
-    ///     Rule::BooleanPositionalValueInCall,
-    ///     Rule::BadQuotesInlineString
+    ///     Rule::RedefinedWhileUnused,
+    ///     Rule::UnusedVariable
     /// ])));
     /// ```
     pub const fn intersects(&self, other: &Self) -> bool {
@@ -155,7 +155,7 @@ impl RuleSet {
     /// # use ruff_linter::registry::{Rule, RuleSet};
     /// assert!(RuleSet::empty().is_empty());
     ///         assert!(
-    ///             !RuleSet::from_rules(&[Rule::AmbiguousFunctionName, Rule::BadQuotesInlineString])
+    ///             !RuleSet::from_rules(&[Rule::UnusedImport, Rule::UnusedVariable])
     ///                 .is_empty()
     ///         );
     /// ```
@@ -171,7 +171,7 @@ impl RuleSet {
     /// # use ruff_linter::registry::{Rule, RuleSet};
     /// assert_eq!(RuleSet::empty().len(), 0);
     /// assert_eq!(
-    ///     RuleSet::from_rules(&[Rule::AmbiguousFunctionName, Rule::BadQuotesInlineString]).len(),
+    ///     RuleSet::from_rules(&[Rule::UnusedImport, Rule::UnusedVariable]).len(),
     ///     2
     /// );
     pub const fn len(&self) -> usize {
@@ -194,11 +194,11 @@ impl RuleSet {
     /// # use ruff_linter::registry::{Rule, RuleSet};
     /// let mut set = RuleSet::empty();
     ///
-    /// assert!(!set.contains(Rule::AnyType));
+    /// assert!(!set.contains(Rule::UndefinedName));
     ///
-    /// set.insert(Rule::AnyType);
+    /// set.insert(Rule::UndefinedName);
     ///
-    /// assert!(set.contains(Rule::AnyType));
+    /// assert!(set.contains(Rule::UndefinedName));
     /// ```
     pub fn insert(&mut self, rule: Rule) {
         let set = std::mem::take(self);
@@ -219,12 +219,12 @@ impl RuleSet {
     /// ## Examples
     /// ```rust
     /// # use ruff_linter::registry::{Rule, RuleSet};
-    /// let mut set = RuleSet::from_rules(&[Rule::AmbiguousFunctionName, Rule::AnyType]);
+    /// let mut set = RuleSet::from_rules(&[Rule::UnusedImport, Rule::UndefinedName]);
     ///
-    /// set.remove(Rule::AmbiguousFunctionName);
+    /// set.remove(Rule::UnusedImport);
     ///
-    /// assert!(set.contains(Rule::AnyType));
-    /// assert!(!set.contains(Rule::AmbiguousFunctionName));
+    /// assert!(set.contains(Rule::UndefinedName));
+    /// assert!(!set.contains(Rule::UnusedImport));
     /// ```
     pub fn remove(&mut self, rule: Rule) {
         let set = std::mem::take(self);
@@ -236,9 +236,9 @@ impl RuleSet {
     /// ## Examples
     /// ```rust
     /// # use ruff_linter::registry::{Rule, RuleSet};
-    /// let set = RuleSet::from_rules(&[Rule::AmbiguousFunctionName, Rule::AnyType]);
+    /// let set = RuleSet::from_rules(&[Rule::UnusedImport, Rule::UndefinedName]);
     ///
-    /// assert!(set.contains(Rule::AmbiguousFunctionName));
+    /// assert!(set.contains(Rule::UnusedImport));
     /// assert!(!set.contains(Rule::BreakOutsideLoop));
     /// ```
     #[inline]
@@ -271,11 +271,11 @@ impl RuleSet {
     ///
     /// ```rust
     /// # use ruff_linter::registry::{Rule, RuleSet};
-    /// let set = RuleSet::from_rules(&[Rule::AmbiguousFunctionName, Rule::AnyType]);
+    /// let set = RuleSet::from_rules(&[Rule::UnusedImport, Rule::UndefinedName]);
     ///
     /// let iter: Vec<_> = set.iter().collect();
     ///
-    /// assert_eq!(iter, vec![Rule::AnyType, Rule::AmbiguousFunctionName]);
+    /// assert_eq!(iter, vec![Rule::UnusedImport, Rule::UndefinedName]);
     /// ```
     pub fn iter(&self) -> RuleSetIterator {
         RuleSetIterator {
@@ -404,9 +404,9 @@ mod tests {
     fn remove_not_existing_rule_from_set() {
         let mut set = RuleSet::default();
 
-        set.remove(Rule::AmbiguousFunctionName);
+        set.remove(Rule::UnusedImport);
 
-        assert!(!set.contains(Rule::AmbiguousFunctionName));
+        assert!(!set.contains(Rule::UnusedImport));
         assert!(set.is_empty());
         assert_eq!(set.into_iter().collect::<Vec<_>>(), vec![]);
     }

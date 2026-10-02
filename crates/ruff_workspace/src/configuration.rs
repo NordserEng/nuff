@@ -19,10 +19,8 @@ use shellexpand::LookupError;
 use strum::IntoEnumIterator;
 
 use ruff_cache::cache_dir;
-use ruff_linter::line_width::{IndentWidth, LineLength};
-use ruff_linter::registry::{INCOMPATIBLE_CODES, Rule, RuleSet};
+use ruff_linter::registry::{Rule, RuleSet};
 use ruff_linter::rule_selector::{PreviewOptions, RuleResolutionError, Specificity};
-use ruff_linter::rules::{flake8_import_conventions, isort, pycodestyle};
 use ruff_linter::settings::fix_safety_table::FixSafetyTable;
 use ruff_linter::settings::rule_table::RuleTable;
 use ruff_linter::settings::types::{
@@ -30,25 +28,14 @@ use ruff_linter::settings::types::{
     FilePatternSet, GlobPath, OutputFormat, PerFileIgnore, PerFileTargetVersion, PreviewMode,
     RequiredVersion, UnsafeFixes,
 };
-use ruff_linter::settings::{
-    DEFAULT_SELECTORS, DUMMY_VARIABLE_RGX, LinterSettings, TASK_TAGS, TargetVersion,
-};
+use ruff_linter::settings::{DEFAULT_SELECTORS, DUMMY_VARIABLE_RGX, LinterSettings, TargetVersion};
 use ruff_linter::{
-    RuleSelector, UnresolvedRuleSelector, fs, warn_user_once, warn_user_once_by_id,
-    warn_user_once_by_message,
+    RuleSelector, UnresolvedRuleSelector, fs, warn_user_once, warn_user_once_by_message,
 };
 use ruff_python_ast as ast;
 
 use crate::options::{
-    Flake8AnnotationsOptions, Flake8BanditOptions, Flake8BooleanTrapOptions, Flake8BugbearOptions,
-    Flake8BuiltinsOptions, Flake8ComprehensionsOptions, Flake8CopyrightOptions,
-    Flake8ErrMsgOptions, Flake8GetTextOptions, Flake8ImplicitStrConcatOptions,
-    Flake8ImportConventionsOptions, Flake8PytestStyleOptions, Flake8QuotesOptions,
-    Flake8SelfOptions, Flake8TidyImportsOptions, Flake8TypeCheckingOptions,
-    Flake8UnusedArgumentsOptions, IsortOptions, LintCommonOptions, LintOptions, McCabeOptions,
-    NuffOptions, Options, Pep8NamingOptions, PyUpgradeOptions, PycodestyleOptions,
-    PydoclintOptions, PydocstyleOptions, PyflakesOptions, PylintOptions, RuffOptions,
-    validate_required_version,
+    LintOptions, NuffOptions, Options, PyflakesOptions, validate_required_version,
 };
 use crate::pyproject;
 use crate::resolver::ConfigurationOrigin;
@@ -191,10 +178,6 @@ pub struct Configuration {
     pub target_version: Option<ast::PythonVersion>,
     pub per_file_target_version: Option<Vec<PerFileTargetVersion>>,
 
-    // Global formatting options
-    pub line_length: Option<LineLength>,
-    pub indent_width: Option<IndentWidth>,
-
     pub lint: LintConfiguration,
 }
 
@@ -205,7 +188,6 @@ impl Configuration {
         }
 
         let linter_target_version = TargetVersion(self.target_version);
-        let _target_version = self.target_version.unwrap_or_default();
         let global_preview = self.preview.unwrap_or_default();
 
         let per_file_target_version = CompiledPerFileTargetVersionList::resolve(
@@ -216,26 +198,7 @@ impl Configuration {
         let lint = self.lint;
         let lint_preview = lint.preview.unwrap_or(global_preview);
 
-        let line_length = self.line_length.unwrap_or_default();
-
         let rules = lint.as_rule_table(lint_preview)?;
-
-        // LinterSettings validation
-        let isort = lint
-            .isort
-            .map(IsortOptions::try_into_settings)
-            .transpose()?
-            .unwrap_or_default();
-        let flake8_import_conventions = lint
-            .flake8_import_conventions
-            .map(|options| options.try_into_settings(lint_preview))
-            .transpose()?
-            .unwrap_or_else(|| {
-                ruff_linter::rules::flake8_import_conventions::settings::Settings::new(lint_preview)
-            });
-
-        conflicting_import_settings(&isort, &flake8_import_conventions)?;
-        conflicting_required_import_pyi025(&isort, &rules)?;
 
         let future_annotations = lint.future_annotations.unwrap_or_default();
 
@@ -284,18 +247,12 @@ impl Configuration {
                 unresolved_target_version: linter_target_version,
                 per_file_target_version,
                 project_root: project_root.to_path_buf(),
-                allowed_confusables: lint
-                    .allowed_confusables
-                    .map(FxHashSet::from_iter)
-                    .unwrap_or_default(),
                 builtins: self.builtins.unwrap_or_default(),
                 dummy_variable_rgx: lint
                     .dummy_variable_rgx
                     .unwrap_or_else(|| DUMMY_VARIABLE_RGX.clone()),
                 external: lint.external.unwrap_or_default(),
                 ignore_init_module_imports: lint.ignore_init_module_imports.unwrap_or(true),
-                line_length,
-                tab_size: self.indent_width.unwrap_or_default(),
                 namespace_packages: self.namespace_packages.unwrap_or_default(),
                 per_file_ignores: CompiledPerFileIgnoreList::resolve(
                     lint.per_file_ignores
@@ -318,125 +275,16 @@ impl Configuration {
                     .unwrap_or_else(|| vec![project_root.to_path_buf(), project_root.join("src")]),
                 explicit_preview_rules: lint.explicit_preview_rules.unwrap_or_default(),
 
-                task_tags: lint
-                    .task_tags
-                    .unwrap_or_else(|| TASK_TAGS.iter().map(ToString::to_string).collect()),
                 logger_objects: lint.logger_objects.unwrap_or_default(),
                 typing_modules: lint.typing_modules.unwrap_or_default(),
                 // Plugins
-                flake8_annotations: lint
-                    .flake8_annotations
-                    .map(Flake8AnnotationsOptions::into_settings)
-                    .unwrap_or_default(),
-                flake8_bandit: lint
-                    .flake8_bandit
-                    .map(|flake8_bandit| flake8_bandit.into_settings(lint.ruff.as_ref()))
-                    .unwrap_or_default(),
-                flake8_boolean_trap: lint
-                    .flake8_boolean_trap
-                    .map(Flake8BooleanTrapOptions::into_settings)
-                    .unwrap_or_default(),
-                flake8_bugbear: lint
-                    .flake8_bugbear
-                    .map(Flake8BugbearOptions::into_settings)
-                    .unwrap_or_default(),
-                flake8_builtins: lint
-                    .flake8_builtins
-                    .map(Flake8BuiltinsOptions::into_settings)
-                    .unwrap_or_default(),
-                flake8_comprehensions: lint
-                    .flake8_comprehensions
-                    .map(Flake8ComprehensionsOptions::into_settings)
-                    .unwrap_or_default(),
-                flake8_copyright: lint
-                    .flake8_copyright
-                    .map(Flake8CopyrightOptions::try_into_settings)
-                    .transpose()?
-                    .unwrap_or_default(),
-                flake8_errmsg: lint
-                    .flake8_errmsg
-                    .map(Flake8ErrMsgOptions::into_settings)
-                    .unwrap_or_default(),
-                flake8_implicit_str_concat: lint
-                    .flake8_implicit_str_concat
-                    .map(Flake8ImplicitStrConcatOptions::into_settings)
-                    .unwrap_or_default(),
-                flake8_import_conventions,
-                flake8_pytest_style: lint
-                    .flake8_pytest_style
-                    .map(Flake8PytestStyleOptions::try_into_settings)
-                    .transpose()?
-                    .unwrap_or_default(),
-                flake8_quotes: lint
-                    .flake8_quotes
-                    .map(Flake8QuotesOptions::into_settings)
-                    .unwrap_or_default(),
-                flake8_self: lint
-                    .flake8_self
-                    .map(Flake8SelfOptions::into_settings)
-                    .unwrap_or_default(),
                 nuff: lint
                     .nuff
                     .map(NuffOptions::into_settings)
                     .unwrap_or_default(),
-                flake8_tidy_imports: lint
-                    .flake8_tidy_imports
-                    .map(Flake8TidyImportsOptions::try_into_settings)
-                    .transpose()?
-                    .unwrap_or_default(),
-                flake8_type_checking: lint
-                    .flake8_type_checking
-                    .map(Flake8TypeCheckingOptions::into_settings)
-                    .unwrap_or_default(),
-                flake8_unused_arguments: lint
-                    .flake8_unused_arguments
-                    .map(Flake8UnusedArgumentsOptions::into_settings)
-                    .unwrap_or_default(),
-                flake8_gettext: lint
-                    .flake8_gettext
-                    .map(Flake8GetTextOptions::into_settings)
-                    .unwrap_or_default(),
-                isort,
-                mccabe: lint
-                    .mccabe
-                    .map(McCabeOptions::into_settings)
-                    .unwrap_or_default(),
-                pep8_naming: lint
-                    .pep8_naming
-                    .map(Pep8NamingOptions::try_into_settings)
-                    .transpose()?
-                    .unwrap_or_default(),
-                pycodestyle: if let Some(pycodestyle) = lint.pycodestyle {
-                    pycodestyle.into_settings(line_length)
-                } else {
-                    pycodestyle::settings::Settings {
-                        max_line_length: line_length,
-                        ..pycodestyle::settings::Settings::default()
-                    }
-                },
-                pydoclint: lint
-                    .pydoclint
-                    .map(PydoclintOptions::into_settings)
-                    .unwrap_or_default(),
-                pydocstyle: lint
-                    .pydocstyle
-                    .map(PydocstyleOptions::into_settings)
-                    .unwrap_or_default(),
                 pyflakes: lint
                     .pyflakes
                     .map(PyflakesOptions::into_settings)
-                    .unwrap_or_default(),
-                pylint: lint
-                    .pylint
-                    .map(PylintOptions::into_settings)
-                    .unwrap_or_default(),
-                pyupgrade: lint
-                    .pyupgrade
-                    .map(PyUpgradeOptions::into_settings)
-                    .unwrap_or_default(),
-                ruff: lint
-                    .ruff
-                    .map(RuffOptions::into_settings)
                     .unwrap_or_default(),
                 typing_extensions: lint.typing_extensions.unwrap_or(true),
                 future_annotations,
@@ -449,20 +297,10 @@ impl Configuration {
     /// was created via "inline TOML" from the `--config` flag
     pub fn from_options(
         options: Options,
-        path: Option<&Path>,
+        _path: Option<&Path>,
         project_root: &Path,
     ) -> Result<Self> {
-        warn_about_deprecated_top_level_lint_options(&options.lint_top_level.0, path);
-
-        let lint = if let Some(mut lint) = options.lint {
-            lint.common = lint.common.combine(options.lint_top_level.0);
-            lint
-        } else {
-            LintOptions {
-                common: options.lint_top_level.0,
-                ..LintOptions::default()
-            }
-        };
+        let lint = options.lint.unwrap_or_default();
 
         Ok(Self {
             builtins: options.builtins,
@@ -531,8 +369,6 @@ impl Configuration {
             output_format: options.output_format,
             output_prefer_rule_codes: options.output_prefer_rule_codes,
             force_exclude: options.force_exclude,
-            line_length: options.line_length,
-            indent_width: options.indent_width,
             namespace_packages: options
                 .namespace_packages
                 .map(|namespace_package| resolve_src(&namespace_package, project_root))
@@ -589,8 +425,6 @@ impl Configuration {
                 .output_prefer_rule_codes
                 .or(config.output_prefer_rule_codes),
             force_exclude: self.force_exclude.or(config.force_exclude),
-            line_length: self.line_length.or(config.line_length),
-            indent_width: self.indent_width.or(config.indent_width),
             namespace_packages: self.namespace_packages.or(config.namespace_packages),
             required_version: self.required_version.or(config.required_version),
             respect_gitignore: self.respect_gitignore.or(config.respect_gitignore),
@@ -650,46 +484,16 @@ pub struct LintConfiguration {
     pub extend_unsafe_fixes: Vec<UnresolvedRuleSelector>,
     pub extend_safe_fixes: Vec<UnresolvedRuleSelector>,
 
-    // Global lint settings
-    pub allowed_confusables: Option<Vec<char>>,
     pub dummy_variable_rgx: Option<Regex>,
     pub external: Option<Vec<String>>,
     pub ignore_init_module_imports: Option<bool>,
     pub logger_objects: Option<Vec<String>>,
-    pub task_tags: Option<Vec<String>>,
     pub typing_modules: Option<Vec<String>>,
     pub typing_extensions: Option<bool>,
     pub future_annotations: Option<bool>,
 
-    // Plugins
-    pub flake8_annotations: Option<Flake8AnnotationsOptions>,
-    pub flake8_bandit: Option<Flake8BanditOptions>,
-    pub flake8_boolean_trap: Option<Flake8BooleanTrapOptions>,
-    pub flake8_bugbear: Option<Flake8BugbearOptions>,
-    pub flake8_builtins: Option<Flake8BuiltinsOptions>,
-    pub flake8_comprehensions: Option<Flake8ComprehensionsOptions>,
-    pub flake8_copyright: Option<Flake8CopyrightOptions>,
-    pub flake8_errmsg: Option<Flake8ErrMsgOptions>,
-    pub flake8_gettext: Option<Flake8GetTextOptions>,
-    pub flake8_implicit_str_concat: Option<Flake8ImplicitStrConcatOptions>,
-    pub flake8_import_conventions: Option<Flake8ImportConventionsOptions>,
-    pub flake8_pytest_style: Option<Flake8PytestStyleOptions>,
-    pub flake8_quotes: Option<Flake8QuotesOptions>,
-    pub flake8_self: Option<Flake8SelfOptions>,
     pub nuff: Option<NuffOptions>,
-    pub flake8_tidy_imports: Option<Flake8TidyImportsOptions>,
-    pub flake8_type_checking: Option<Flake8TypeCheckingOptions>,
-    pub flake8_unused_arguments: Option<Flake8UnusedArgumentsOptions>,
-    pub isort: Option<IsortOptions>,
-    pub mccabe: Option<McCabeOptions>,
-    pub pep8_naming: Option<Pep8NamingOptions>,
-    pub pycodestyle: Option<PycodestyleOptions>,
-    pub pydoclint: Option<PydoclintOptions>,
-    pub pydocstyle: Option<PydocstyleOptions>,
     pub pyflakes: Option<PyflakesOptions>,
-    pub pylint: Option<PylintOptions>,
-    pub pyupgrade: Option<PyUpgradeOptions>,
-    pub ruff: Option<RuffOptions>,
 }
 
 impl LintConfiguration {
@@ -747,7 +551,6 @@ impl LintConfiguration {
             }],
             extend_safe_fixes: options.common.extend_safe_fixes.unwrap_or_default(),
             extend_unsafe_fixes: options.common.extend_unsafe_fixes.unwrap_or_default(),
-            allowed_confusables: options.common.allowed_confusables,
             dummy_variable_rgx: options
                 .common
                 .dummy_variable_rgx
@@ -777,41 +580,13 @@ impl LintConfiguration {
                     })
                     .collect()
             }),
-            task_tags: options.common.task_tags,
             logger_objects: options.common.logger_objects,
             typing_modules: options.common.typing_modules,
             typing_extensions: options.typing_extensions,
             future_annotations: options.future_annotations,
 
-            // Plugins
-            flake8_annotations: options.common.flake8_annotations,
-            flake8_bandit: options.common.flake8_bandit,
-            flake8_boolean_trap: options.common.flake8_boolean_trap,
-            flake8_bugbear: options.common.flake8_bugbear,
-            flake8_builtins: options.common.flake8_builtins,
-            flake8_comprehensions: options.common.flake8_comprehensions,
-            flake8_copyright: options.common.flake8_copyright,
-            flake8_errmsg: options.common.flake8_errmsg,
-            flake8_gettext: options.common.flake8_gettext,
-            flake8_implicit_str_concat: options.common.flake8_implicit_str_concat,
-            flake8_import_conventions: options.common.flake8_import_conventions,
-            flake8_pytest_style: options.common.flake8_pytest_style,
-            flake8_quotes: options.common.flake8_quotes,
-            flake8_self: options.common.flake8_self,
             nuff: options.common.nuff,
-            flake8_tidy_imports: options.common.flake8_tidy_imports,
-            flake8_type_checking: options.common.flake8_type_checking,
-            flake8_unused_arguments: options.common.flake8_unused_arguments,
-            isort: options.common.isort,
-            mccabe: options.common.mccabe,
-            pep8_naming: options.common.pep8_naming,
-            pycodestyle: options.common.pycodestyle,
-            pydoclint: options.pydoclint,
-            pydocstyle: options.common.pydocstyle,
             pyflakes: options.common.pyflakes,
-            pylint: options.common.pylint,
-            pyupgrade: options.common.pyupgrade,
-            ruff: options.ruff,
         })
     }
 
@@ -854,15 +629,10 @@ impl LintConfiguration {
         let mut carryover_unfixables: Option<&[RuleSelector]> = None;
 
         // Store selectors for displaying warnings
-        let mut redirects = FxHashMap::default();
         let mut deprecated_selectors = FxHashSet::default();
         let mut removed_selectors = FxHashSet::default();
         let mut removed_ignored_rules = FxHashSet::default();
         let mut ignored_preview_selectors = FxHashSet::default();
-
-        // Track which docstring rules are specifically enabled
-        // which lets us override the docstring convention ignore-list
-        let mut docstring_overrides: FxHashSet<Rule> = FxHashSet::default();
 
         for selection in &rule_selections {
             // If a selection only specifies extend-select we cannot directly
@@ -874,8 +644,6 @@ impl LintConfiguration {
             // whether to enable or disable the given rule.
             let mut select_map_updates: FxHashMap<Rule, bool> = FxHashMap::default();
             let mut fixable_map_updates: FxHashMap<Rule, bool> = FxHashMap::default();
-
-            let mut docstring_override_updates: FxHashSet<Rule> = FxHashSet::default();
 
             let carriedover_ignores = carryover_ignores.take();
             let carriedover_unfixables = carryover_unfixables.take();
@@ -891,10 +659,6 @@ impl LintConfiguration {
                 {
                     for rule in selector.rules(&preview) {
                         select_map_updates.insert(rule, true);
-
-                        if spec == Specificity::Rule {
-                            docstring_override_updates.insert(rule);
-                        }
                     }
                 }
                 for selector in selection
@@ -946,8 +710,6 @@ impl LintConfiguration {
                 {
                     carryover_ignores = Some(&selection.ignore);
                 }
-
-                docstring_overrides = docstring_override_updates;
             } else {
                 // Otherwise we apply the updates on top of the existing select_set.
                 #[expect(
@@ -956,14 +718,6 @@ impl LintConfiguration {
                 )]
                 for (rule, enabled) in select_map_updates {
                     select_set.set(rule, enabled);
-                }
-
-                #[expect(
-                    clippy::iter_over_hash_type,
-                    reason = "set insertion is independent of iteration order"
-                )]
-                for rule in docstring_override_updates {
-                    docstring_overrides.insert(rule);
                 }
             }
 
@@ -1028,19 +782,6 @@ impl LintConfiguration {
                         }
                     }
                 }
-
-                // Redirected rules
-                if let RuleSelector::Prefix {
-                    redirected_from: Some(redirect_from),
-                    ..
-                }
-                | RuleSelector::Rule {
-                    redirected_from: Some(redirect_from),
-                    ..
-                } = selector
-                {
-                    redirects.insert(*redirect_from, selector);
-                }
             }
         }
 
@@ -1079,12 +820,6 @@ impl LintConfiguration {
             warn_user_once_by_message!(
                 "The following rules have been removed and ignoring them has no effect:{rules}"
             );
-        }
-
-        for (from, target) in redirects.iter().sorted_by_key(|item| item.0) {
-            let (prefix, code) = target.prefix_and_code();
-            // TODO(martin): This belongs into the ruff crate.
-            warn_user_once_by_id!(from, "`{from}` has been remapped to `{prefix}{code}`.");
         }
 
         if preview.mode.is_disabled() {
@@ -1136,29 +871,6 @@ impl LintConfiguration {
             rules.enable(rule, fix);
         }
 
-        // If a docstring convention is specified, disable any incompatible error
-        // codes unless we are specifically overridden.
-        if let Some(convention) = self
-            .pydocstyle
-            .as_ref()
-            .and_then(|pydocstyle| pydocstyle.convention)
-        {
-            for rule in convention.rules_to_be_ignored() {
-                if !docstring_overrides.contains(rule) {
-                    rules.disable(*rule);
-                }
-            }
-        }
-
-        // Validate that we didn't enable any incompatible rules. Use this awkward
-        // approach to give each pair it's own `warn_user_once`.
-        for (preferred, expendable, message) in INCOMPATIBLE_CODES {
-            if rules.enabled(*preferred) && rules.enabled(*expendable) {
-                warn_user_once_by_id!(expendable.name().as_str(), "{}", message);
-                rules.disable(*expendable);
-            }
-        }
-
         Ok(rules)
     }
 
@@ -1182,7 +894,6 @@ impl LintConfiguration {
             rule_selections,
             extend_safe_fixes,
             extend_unsafe_fixes,
-            allowed_confusables: self.allowed_confusables.or(config.allowed_confusables),
             dummy_variable_rgx: self.dummy_variable_rgx.or(config.dummy_variable_rgx),
             extend_per_file_ignores,
             external: self.external.or(config.external),
@@ -1194,48 +905,10 @@ impl LintConfiguration {
             explicit_preview_rules: self
                 .explicit_preview_rules
                 .or(config.explicit_preview_rules),
-            task_tags: self.task_tags.or(config.task_tags),
             typing_modules: self.typing_modules.or(config.typing_modules),
 
-            // Plugins
-            flake8_annotations: self.flake8_annotations.combine(config.flake8_annotations),
-            flake8_bandit: self.flake8_bandit.combine(config.flake8_bandit),
-            flake8_boolean_trap: self.flake8_boolean_trap.combine(config.flake8_boolean_trap),
-            flake8_bugbear: self.flake8_bugbear.combine(config.flake8_bugbear),
-            flake8_builtins: self.flake8_builtins.combine(config.flake8_builtins),
-            flake8_comprehensions: self
-                .flake8_comprehensions
-                .combine(config.flake8_comprehensions),
-            flake8_copyright: self.flake8_copyright.combine(config.flake8_copyright),
-            flake8_errmsg: self.flake8_errmsg.combine(config.flake8_errmsg),
-            flake8_gettext: self.flake8_gettext.combine(config.flake8_gettext),
-            flake8_implicit_str_concat: self
-                .flake8_implicit_str_concat
-                .combine(config.flake8_implicit_str_concat),
-            flake8_import_conventions: self
-                .flake8_import_conventions
-                .combine(config.flake8_import_conventions),
-            flake8_pytest_style: self.flake8_pytest_style.combine(config.flake8_pytest_style),
-            flake8_quotes: self.flake8_quotes.combine(config.flake8_quotes),
-            flake8_self: self.flake8_self.combine(config.flake8_self),
             nuff: self.nuff.combine(config.nuff),
-            flake8_tidy_imports: self.flake8_tidy_imports.combine(config.flake8_tidy_imports),
-            flake8_type_checking: self
-                .flake8_type_checking
-                .combine(config.flake8_type_checking),
-            flake8_unused_arguments: self
-                .flake8_unused_arguments
-                .combine(config.flake8_unused_arguments),
-            isort: self.isort.combine(config.isort),
-            mccabe: self.mccabe.combine(config.mccabe),
-            pep8_naming: self.pep8_naming.combine(config.pep8_naming),
-            pycodestyle: self.pycodestyle.combine(config.pycodestyle),
-            pydoclint: self.pydoclint.combine(config.pydoclint),
-            pydocstyle: self.pydocstyle.combine(config.pydocstyle),
             pyflakes: self.pyflakes.combine(config.pyflakes),
-            pylint: self.pylint.combine(config.pylint),
-            pyupgrade: self.pyupgrade.combine(config.pyupgrade),
-            ruff: self.ruff.combine(config.ruff),
             typing_extensions: self.typing_extensions.or(config.typing_extensions),
             future_annotations: self.future_annotations.or(config.future_annotations),
         }
@@ -1278,340 +951,6 @@ fn resolve_src(src: &[String], project_root: &Path) -> Result<Vec<PathBuf>> {
     Ok(paths)
 }
 
-fn warn_about_deprecated_top_level_lint_options(
-    top_level_options: &LintCommonOptions,
-    path: Option<&Path>,
-) {
-    #[expect(deprecated)]
-    let LintCommonOptions {
-        allowed_confusables,
-        dummy_variable_rgx,
-        extend_ignore,
-        extend_select,
-        extend_fixable,
-        extend_unfixable,
-        external,
-        fixable,
-        ignore,
-        extend_safe_fixes,
-        extend_unsafe_fixes,
-        ignore_init_module_imports,
-        logger_objects,
-        select,
-        explicit_preview_rules,
-        task_tags,
-        typing_modules,
-        unfixable,
-        flake8_annotations,
-        flake8_bandit,
-        flake8_boolean_trap,
-        flake8_bugbear,
-        flake8_builtins,
-        flake8_comprehensions,
-        flake8_copyright,
-        flake8_errmsg,
-        flake8_quotes,
-        flake8_self,
-        nuff,
-        flake8_tidy_imports,
-        flake8_type_checking,
-        flake8_gettext,
-        flake8_implicit_str_concat,
-        flake8_import_conventions,
-        flake8_pytest_style,
-        flake8_unused_arguments,
-        isort,
-        mccabe,
-        pep8_naming,
-        pycodestyle,
-        pydocstyle,
-        pyflakes,
-        pylint,
-        pyupgrade,
-        per_file_ignores,
-        extend_per_file_ignores,
-    } = top_level_options;
-    let mut used_options = Vec::new();
-
-    if allowed_confusables.is_some() {
-        used_options.push("allowed-confusables");
-    }
-
-    if dummy_variable_rgx.is_some() {
-        used_options.push("dummy-variable-rgx");
-    }
-
-    if extend_ignore.is_some() {
-        used_options.push("extend-ignore");
-    }
-
-    if extend_select.is_some() {
-        used_options.push("extend-select");
-    }
-
-    if extend_fixable.is_some() {
-        used_options.push("extend-fixable");
-    }
-
-    if extend_unfixable.is_some() {
-        used_options.push("extend-unfixable");
-    }
-
-    if external.is_some() {
-        used_options.push("external");
-    }
-
-    if fixable.is_some() {
-        used_options.push("fixable");
-    }
-
-    if ignore.is_some() {
-        used_options.push("ignore");
-    }
-
-    if extend_safe_fixes.is_some() {
-        used_options.push("extend-safe-fixes");
-    }
-
-    if extend_unsafe_fixes.is_some() {
-        used_options.push("extend-unsafe-fixes");
-    }
-
-    if ignore_init_module_imports.is_some() {
-        used_options.push("ignore-init-module-imports");
-    }
-
-    if logger_objects.is_some() {
-        used_options.push("logger-objects");
-    }
-
-    if select.is_some() {
-        used_options.push("select");
-    }
-
-    if explicit_preview_rules.is_some() {
-        used_options.push("explicit-preview-rules");
-    }
-
-    if task_tags.is_some() {
-        used_options.push("task-tags");
-    }
-
-    if typing_modules.is_some() {
-        used_options.push("typing-modules");
-    }
-
-    if unfixable.is_some() {
-        used_options.push("unfixable");
-    }
-
-    if flake8_annotations.is_some() {
-        used_options.push("flake8-annotations");
-    }
-
-    if flake8_bandit.is_some() {
-        used_options.push("flake8-bandit");
-    }
-
-    if flake8_boolean_trap.is_some() {
-        used_options.push("flake8-boolean-trap");
-    }
-
-    if flake8_bugbear.is_some() {
-        used_options.push("flake8-bugbear");
-    }
-
-    if flake8_builtins.is_some() {
-        used_options.push("flake8-builtins");
-    }
-
-    if flake8_comprehensions.is_some() {
-        used_options.push("flake8-comprehensions");
-    }
-
-    if flake8_copyright.is_some() {
-        used_options.push("flake8-copyright");
-    }
-
-    if flake8_errmsg.is_some() {
-        used_options.push("flake8-errmsg");
-    }
-
-    if flake8_quotes.is_some() {
-        used_options.push("flake8-quotes");
-    }
-
-    if flake8_self.is_some() {
-        used_options.push("flake8-self");
-    }
-
-    if nuff.is_some() {
-        used_options.push("nuff");
-    }
-
-    if flake8_tidy_imports.is_some() {
-        used_options.push("flake8-tidy-imports");
-    }
-
-    if flake8_type_checking.is_some() {
-        used_options.push("flake8-type-checking");
-    }
-
-    if flake8_gettext.is_some() {
-        used_options.push("flake8-gettext");
-    }
-
-    if flake8_implicit_str_concat.is_some() {
-        used_options.push("flake8-implicit-str-concat");
-    }
-
-    if flake8_import_conventions.is_some() {
-        used_options.push("flake8-import-conventions");
-    }
-
-    if flake8_pytest_style.is_some() {
-        used_options.push("flake8-pytest-style");
-    }
-
-    if flake8_unused_arguments.is_some() {
-        used_options.push("flake8-unused-arguments");
-    }
-
-    if isort.is_some() {
-        used_options.push("isort");
-    }
-
-    if mccabe.is_some() {
-        used_options.push("mccabe");
-    }
-
-    if pep8_naming.is_some() {
-        used_options.push("pep8-naming");
-    }
-
-    if pycodestyle.is_some() {
-        used_options.push("pycodestyle");
-    }
-
-    if pydocstyle.is_some() {
-        used_options.push("pydocstyle");
-    }
-
-    if pyflakes.is_some() {
-        used_options.push("pyflakes");
-    }
-
-    if pylint.is_some() {
-        used_options.push("pylint");
-    }
-
-    if pyupgrade.is_some() {
-        used_options.push("pyupgrade");
-    }
-
-    if per_file_ignores.is_some() {
-        used_options.push("per-file-ignores");
-    }
-
-    if extend_per_file_ignores.is_some() {
-        used_options.push("extend-per-file-ignores");
-    }
-
-    if used_options.is_empty() {
-        return;
-    }
-
-    let options_mapping = used_options
-        .iter()
-        .map(|option| format!("- '{option}' -> 'lint.{option}'"))
-        .join("\n  ");
-
-    let thing_to_update = path.map_or_else(
-        || String::from("your `--config` CLI arguments"),
-        |path| format!("`{}`", fs::relativize_path(path)),
-    );
-
-    warn_user_once_by_message!(
-        "The top-level linter settings are deprecated \
-        in favour of their counterparts in the `lint` section. \
-        Please update the following options in {thing_to_update}:\n  \
-        {options_mapping}",
-    );
-}
-
-/// Detect conflicts between I002 (missing-required-import) and ICN001 (unconventional-import-alias)
-fn conflicting_import_settings(
-    isort: &isort::settings::Settings,
-    flake8_import_conventions: &flake8_import_conventions::settings::Settings,
-) -> Result<()> {
-    use std::fmt::Write;
-    let mut err_body = String::new();
-    for required_import in &isort.required_imports {
-        // Ex: `from foo import bar as baz` OR `import foo.bar as baz`
-        // - qualified name: `foo.bar`
-        // - bound name: `baz`
-        // - conflicts with: `{"foo.bar":"buzz"}`
-        // - does not conflict with either of
-        //   - `{"bar":"buzz"}`
-        //   - `{"foo.bar":"baz"}`
-        let qualified_name = required_import.qualified_name().to_string();
-        let bound_name = required_import.bound_name();
-        let Some(alias) = flake8_import_conventions.aliases.get(&qualified_name) else {
-            continue;
-        };
-        if alias != bound_name {
-            writeln!(err_body, "    - `{qualified_name}` -> `{alias}`").unwrap();
-        }
-    }
-
-    if !err_body.is_empty() {
-        return Err(anyhow!(
-            "Required import specified in `lint.isort.required-imports` (I002) \
-            conflicts with the required import alias specified in either \
-            `lint.flake8-import-conventions.aliases` or \
-            `lint.flake8-import-conventions.extend-aliases` (ICN001):\
-                \n{err_body}\n\
-            Help: Remove the required import or alias from your configuration."
-        ));
-    }
-
-    Ok(())
-}
-
-/// Detect conflicts between I002 (missing-required-import) and PYI025
-/// (unaliased-collections-abc-set-import).
-///
-/// If `required-imports` includes `from collections.abc import Set` (without
-/// aliasing it as `AbstractSet`) and PYI025 is enabled, the configuration is
-/// contradictory: I002 requires the unaliased import, while PYI025 forbids it.
-fn conflicting_required_import_pyi025(
-    isort: &isort::settings::Settings,
-    rules: &RuleTable,
-) -> Result<()> {
-    if !rules.enabled(Rule::UnaliasedCollectionsAbcSetImport) {
-        return Ok(());
-    }
-
-    for required_import in &isort.required_imports {
-        let qualified_name = required_import.qualified_name();
-        if qualified_name.segments() == ["collections", "abc", "Set"]
-            && required_import.bound_name() != "AbstractSet"
-        {
-            return Err(anyhow!(
-                "Required import `from collections.abc import Set` specified in \
-                `lint.isort.required-imports` (I002) conflicts with \
-                `unaliased-collections-abc-set-import` (PYI025), which requires \
-                this import to be aliased as `AbstractSet`.\n\n\
-                Help: Either alias the required import \
-                (`from collections.abc import Set as AbstractSet`), \
-                or disable PYI025."
-            ));
-        }
-    }
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
@@ -1622,22 +961,11 @@ mod tests {
     use ruff_linter::settings::types::PreviewMode;
 
     use crate::configuration::{LintConfiguration, RuleSelection};
-    use crate::options::PydocstyleOptions;
 
-    const PREVIEW_RULES: &[Rule] = &[
-        Rule::ReimplementedStarmap,
-        Rule::SliceCopy,
-        Rule::ClassAsDataStructure,
-        Rule::TooManyPublicMethods,
-        Rule::UnnecessaryEnumerate,
-        Rule::MathConstant,
-        Rule::PreviewTestRule,
-        Rule::BlankLineBetweenMethods,
-        Rule::BlankLinesTopLevel,
-        Rule::TooManyBlankLines,
-        Rule::BlankLineAfterDecorator,
-        Rule::BlankLinesAfterFunctionOrClass,
-        Rule::BlankLinesBeforeNestedDefinition,
+    const ASYNC22: &[Rule] = &[
+        Rule::CreateSubprocessInAsyncFunction,
+        Rule::RunProcessInAsyncFunction,
+        Rule::WaitForProcessInAsyncFunction,
     ];
 
     fn resolve_rules(
@@ -1654,83 +982,37 @@ mod tests {
         .collect())
     }
 
+    fn select(selectors: &[&str]) -> RuleSelection {
+        RuleSelection {
+            select: Some(
+                selectors
+                    .iter()
+                    .map(|s| UnresolvedRuleSelector::cli(*s))
+                    .collect(),
+            ),
+            ..RuleSelection::default()
+        }
+    }
+
+    fn preview(mode: PreviewMode) -> PreviewOptions {
+        PreviewOptions {
+            mode,
+            ..PreviewOptions::default()
+        }
+    }
+
     #[test]
     fn select_linter() -> Result<()> {
-        let actual = resolve_rules(
-            [RuleSelection {
-                select: Some(vec![
-                    UnresolvedRuleSelector::cli("E"),
-                    UnresolvedRuleSelector::cli("W"),
-                ]),
-                ..RuleSelection::default()
-            }],
-            None,
-        )?;
-
-        let expected = RuleSet::from_rules(&[
-            Rule::MixedSpacesAndTabs,
-            Rule::MultipleImportsOnOneLine,
-            Rule::ModuleImportNotAtTopOfFile,
-            Rule::LineTooLong,
-            Rule::MultipleStatementsOnOneLineColon,
-            Rule::MultipleStatementsOnOneLineSemicolon,
-            Rule::UselessSemicolon,
-            Rule::NoneComparison,
-            Rule::TrueFalseComparison,
-            Rule::NotInTest,
-            Rule::NotIsTest,
-            Rule::TypeComparison,
-            Rule::BareExcept,
-            Rule::LambdaAssignment,
-            Rule::AmbiguousVariableName,
-            Rule::AmbiguousClassName,
-            Rule::AmbiguousFunctionName,
-            Rule::IOError,
-            Rule::TabIndentation,
-            Rule::TrailingWhitespace,
-            Rule::MissingNewlineAtEndOfFile,
-            Rule::BlankLineWithWhitespace,
-            Rule::DocLineTooLong,
-            Rule::InvalidEscapeSequence,
-        ]);
-        assert_eq!(actual, expected);
-
-        Ok(())
-    }
-
-    #[test]
-    fn select_one_char_prefix() -> Result<()> {
-        let actual = resolve_rules(
-            [RuleSelection {
-                select: Some(vec![UnresolvedRuleSelector::cli("W")]),
-                ..RuleSelection::default()
-            }],
-            None,
-        )?;
-
-        let expected = RuleSet::from_rules(&[
-            Rule::TrailingWhitespace,
-            Rule::MissingNewlineAtEndOfFile,
-            Rule::BlankLineWithWhitespace,
-            Rule::DocLineTooLong,
-            Rule::InvalidEscapeSequence,
-            Rule::TabIndentation,
-        ]);
+        let actual = resolve_rules([select(&["E", "PL"])], None)?;
+        let expected = RuleSet::from_rules(&[Rule::IOError, Rule::ImportOutsideTopLevel]);
         assert_eq!(actual, expected);
         Ok(())
     }
 
     #[test]
-    fn select_two_char_prefix() -> Result<()> {
-        let actual = resolve_rules(
-            [RuleSelection {
-                select: Some(vec![UnresolvedRuleSelector::cli("W6")]),
-                ..RuleSelection::default()
-            }],
-            None,
-        )?;
-        let expected = RuleSet::from_rule(Rule::InvalidEscapeSequence);
-        assert_eq!(actual, expected);
+    fn select_prefix() -> Result<()> {
+        let actual = resolve_rules([select(&["ASYNC22"])], None)?;
+        assert_eq!(actual, RuleSet::from_rules(ASYNC22));
         Ok(())
     }
 
@@ -1738,18 +1020,14 @@ mod tests {
     fn select_prefix_ignore_code() -> Result<()> {
         let actual = resolve_rules(
             [RuleSelection {
-                select: Some(vec![UnresolvedRuleSelector::cli("W")]),
-                ignore: vec![UnresolvedRuleSelector::cli("W292")],
-                ..RuleSelection::default()
+                ignore: vec![UnresolvedRuleSelector::cli("ASYNC221")],
+                ..select(&["ASYNC22"])
             }],
             None,
         )?;
         let expected = RuleSet::from_rules(&[
-            Rule::TrailingWhitespace,
-            Rule::BlankLineWithWhitespace,
-            Rule::DocLineTooLong,
-            Rule::InvalidEscapeSequence,
-            Rule::TabIndentation,
+            Rule::CreateSubprocessInAsyncFunction,
+            Rule::WaitForProcessInAsyncFunction,
         ]);
         assert_eq!(actual, expected);
         Ok(())
@@ -1759,14 +1037,12 @@ mod tests {
     fn select_code_ignore_prefix() -> Result<()> {
         let actual = resolve_rules(
             [RuleSelection {
-                select: Some(vec![UnresolvedRuleSelector::cli("W292")]),
-                ignore: vec![UnresolvedRuleSelector::cli("W")],
-                ..RuleSelection::default()
+                ignore: vec![UnresolvedRuleSelector::cli("ASYNC22")],
+                ..select(&["ASYNC221"])
             }],
             None,
         )?;
-        let expected = RuleSet::from_rule(Rule::MissingNewlineAtEndOfFile);
-        assert_eq!(actual, expected);
+        assert_eq!(actual, RuleSet::from_rule(Rule::RunProcessInAsyncFunction));
         Ok(())
     }
 
@@ -1774,14 +1050,12 @@ mod tests {
     fn select_code_ignore_code() -> Result<()> {
         let actual = resolve_rules(
             [RuleSelection {
-                select: Some(vec![UnresolvedRuleSelector::cli("W605")]),
-                ignore: vec![UnresolvedRuleSelector::cli("W605")],
-                ..RuleSelection::default()
+                ignore: vec![UnresolvedRuleSelector::cli("ASYNC221")],
+                ..select(&["ASYNC221"])
             }],
             None,
         )?;
-        let expected = RuleSet::empty();
-        assert_eq!(actual, expected);
+        assert_eq!(actual, RuleSet::empty());
         Ok(())
     }
 
@@ -1790,26 +1064,17 @@ mod tests {
         let actual = resolve_rules(
             [
                 RuleSelection {
-                    select: Some(vec![UnresolvedRuleSelector::cli("W")]),
-                    ignore: vec![UnresolvedRuleSelector::cli("W292")],
-                    ..RuleSelection::default()
+                    ignore: vec![UnresolvedRuleSelector::cli("ASYNC221")],
+                    ..select(&["ASYNC22"])
                 },
                 RuleSelection {
-                    extend_select: vec![UnresolvedRuleSelector::cli("W292")],
+                    extend_select: vec![UnresolvedRuleSelector::cli("ASYNC221")],
                     ..RuleSelection::default()
                 },
             ],
             None,
         )?;
-        let expected = RuleSet::from_rules(&[
-            Rule::TrailingWhitespace,
-            Rule::MissingNewlineAtEndOfFile,
-            Rule::BlankLineWithWhitespace,
-            Rule::DocLineTooLong,
-            Rule::InvalidEscapeSequence,
-            Rule::TabIndentation,
-        ]);
-        assert_eq!(actual, expected);
+        assert_eq!(actual, RuleSet::from_rules(ASYNC22));
         Ok(())
     }
 
@@ -1818,20 +1083,18 @@ mod tests {
         let actual = resolve_rules(
             [
                 RuleSelection {
-                    select: Some(vec![UnresolvedRuleSelector::cli("W")]),
-                    ignore: vec![UnresolvedRuleSelector::cli("W292")],
-                    ..RuleSelection::default()
+                    ignore: vec![UnresolvedRuleSelector::cli("ASYNC221")],
+                    ..select(&["ASYNC22"])
                 },
                 RuleSelection {
-                    extend_select: vec![UnresolvedRuleSelector::cli("W292")],
-                    ignore: vec![UnresolvedRuleSelector::cli("W")],
+                    extend_select: vec![UnresolvedRuleSelector::cli("ASYNC221")],
+                    ignore: vec![UnresolvedRuleSelector::cli("ASYNC22")],
                     ..RuleSelection::default()
                 },
             ],
             None,
         )?;
-        let expected = RuleSet::from_rule(Rule::MissingNewlineAtEndOfFile);
-        assert_eq!(actual, expected);
+        assert_eq!(actual, RuleSet::from_rule(Rule::RunProcessInAsyncFunction));
         Ok(())
     }
 
@@ -1840,23 +1103,16 @@ mod tests {
         let actual = resolve_rules(
             [
                 RuleSelection {
-                    select: Some(vec![]),
-                    ignore: vec![UnresolvedRuleSelector::cli("W292")],
-                    ..RuleSelection::default()
+                    ignore: vec![UnresolvedRuleSelector::cli("ASYNC221")],
+                    ..select(&[])
                 },
-                RuleSelection {
-                    select: Some(vec![UnresolvedRuleSelector::cli("W")]),
-                    ..RuleSelection::default()
-                },
+                select(&["ASYNC22"]),
             ],
             None,
         )?;
         let expected = RuleSet::from_rules(&[
-            Rule::TrailingWhitespace,
-            Rule::BlankLineWithWhitespace,
-            Rule::DocLineTooLong,
-            Rule::InvalidEscapeSequence,
-            Rule::TabIndentation,
+            Rule::CreateSubprocessInAsyncFunction,
+            Rule::WaitForProcessInAsyncFunction,
         ]);
         assert_eq!(actual, expected);
         Ok(())
@@ -1867,251 +1123,70 @@ mod tests {
         let actual = resolve_rules(
             [
                 RuleSelection {
-                    select: Some(vec![]),
-                    ignore: vec![UnresolvedRuleSelector::cli("W292")],
-                    ..RuleSelection::default()
+                    ignore: vec![UnresolvedRuleSelector::cli("ASYNC221")],
+                    ..select(&[])
                 },
                 RuleSelection {
-                    select: Some(vec![UnresolvedRuleSelector::cli("W")]),
-                    ignore: vec![UnresolvedRuleSelector::cli("W505")],
-                    ..RuleSelection::default()
+                    ignore: vec![UnresolvedRuleSelector::cli("ASYNC222")],
+                    ..select(&["ASYNC22"])
                 },
             ],
             None,
         )?;
-        let expected = RuleSet::from_rules(&[
-            Rule::TrailingWhitespace,
-            Rule::BlankLineWithWhitespace,
-            Rule::InvalidEscapeSequence,
-            Rule::TabIndentation,
-        ]);
-        assert_eq!(actual, expected);
+        assert_eq!(
+            actual,
+            RuleSet::from_rule(Rule::CreateSubprocessInAsyncFunction)
+        );
         Ok(())
     }
 
     #[test]
     fn select_all_preview() -> Result<()> {
-        let actual = resolve_rules(
-            [RuleSelection {
-                select: Some(vec![UnresolvedRuleSelector::cli("ALL")]),
-                ..RuleSelection::default()
-            }],
-            Some(PreviewOptions {
-                mode: PreviewMode::Disabled,
-                ..PreviewOptions::default()
-            }),
-        )?;
-        assert!(!actual.intersects(&RuleSet::from_rules(PREVIEW_RULES)));
+        let preview_rule = RuleSet::from_rule(Rule::YieldInContextManagerInAsyncGenerator);
 
-        let actual = resolve_rules(
-            [RuleSelection {
-                select: Some(vec![UnresolvedRuleSelector::cli("ALL")]),
-                ..RuleSelection::default()
-            }],
-            Some(PreviewOptions {
-                mode: PreviewMode::Enabled,
-                ..PreviewOptions::default()
-            }),
-        )?;
-        assert!(actual.intersects(&RuleSet::from_rules(PREVIEW_RULES)));
+        let actual = resolve_rules([select(&["ALL"])], Some(preview(PreviewMode::Disabled)))?;
+        assert!(!actual.intersects(&preview_rule));
 
+        let actual = resolve_rules([select(&["ALL"])], Some(preview(PreviewMode::Enabled)))?;
+        assert!(actual.intersects(&preview_rule));
         Ok(())
     }
 
     #[test]
-    fn select_linter_preview() -> Result<()> {
-        let actual = resolve_rules(
-            [RuleSelection {
-                select: Some(vec![UnresolvedRuleSelector::cli("RUF91")]),
-                ..RuleSelection::default()
-            }],
-            Some(PreviewOptions {
-                mode: PreviewMode::Disabled,
-                ..PreviewOptions::default()
-            }),
-        )?;
-        let expected = RuleSet::empty();
-        assert_eq!(actual, expected);
+    fn select_linter_and_prefix_preview() -> Result<()> {
+        let preview_rule = RuleSet::from_rule(Rule::YieldInContextManagerInAsyncGenerator);
+        for selector in ["ASYNC", "ASYNC1"] {
+            let actual =
+                resolve_rules([select(&[selector])], Some(preview(PreviewMode::Disabled)))?;
+            assert!(!actual.intersects(&preview_rule), "{selector}");
 
-        let actual = resolve_rules(
-            [RuleSelection {
-                select: Some(vec![UnresolvedRuleSelector::cli("RUF91")]),
-                ..RuleSelection::default()
-            }],
-            Some(PreviewOptions {
-                mode: PreviewMode::Enabled,
-                ..PreviewOptions::default()
-            }),
-        )?;
-        let expected = RuleSet::from_rule(Rule::PreviewTestRule);
-        assert_eq!(actual, expected);
-        Ok(())
-    }
-
-    #[test]
-    fn select_prefix_preview() -> Result<()> {
-        let actual = resolve_rules(
-            [RuleSelection {
-                select: Some(vec![UnresolvedRuleSelector::cli("RUF91")]),
-                ..RuleSelection::default()
-            }],
-            Some(PreviewOptions {
-                mode: PreviewMode::Disabled,
-                ..PreviewOptions::default()
-            }),
-        )?;
-        let expected = RuleSet::empty();
-        assert_eq!(actual, expected);
-
-        let actual = resolve_rules(
-            [RuleSelection {
-                select: Some(vec![UnresolvedRuleSelector::cli("RUF91")]),
-                ..RuleSelection::default()
-            }],
-            Some(PreviewOptions {
-                mode: PreviewMode::Enabled,
-                ..PreviewOptions::default()
-            }),
-        )?;
-        let expected = RuleSet::from_rule(Rule::PreviewTestRule);
-        assert_eq!(actual, expected);
+            let actual = resolve_rules([select(&[selector])], Some(preview(PreviewMode::Enabled)))?;
+            assert!(actual.intersects(&preview_rule), "{selector}");
+        }
         Ok(())
     }
 
     #[test]
     fn select_rule_preview() -> Result<()> {
-        // Test inclusion when toggling preview on and off
-        let actual = resolve_rules(
-            [RuleSelection {
-                select: Some(vec![UnresolvedRuleSelector::cli("FURB145")]),
-                ..RuleSelection::default()
-            }],
-            Some(PreviewOptions {
-                mode: PreviewMode::Disabled,
-                ..PreviewOptions::default()
-            }),
-        )?;
-        let expected = RuleSet::empty();
-        assert_eq!(actual, expected);
+        let preview_rule = RuleSet::from_rule(Rule::YieldInContextManagerInAsyncGenerator);
 
         let actual = resolve_rules(
-            [RuleSelection {
-                select: Some(vec![UnresolvedRuleSelector::cli("FURB145")]),
-                ..RuleSelection::default()
-            }],
-            Some(PreviewOptions {
-                mode: PreviewMode::Enabled,
-                ..PreviewOptions::default()
-            }),
+            [select(&["ASYNC119"])],
+            Some(preview(PreviewMode::Disabled)),
         )?;
-        let expected = RuleSet::from_rule(Rule::SliceCopy);
-        assert_eq!(actual, expected);
+        assert_eq!(actual, RuleSet::empty());
 
-        // Test inclusion when preview is on but explicit codes are required
+        let actual = resolve_rules([select(&["ASYNC119"])], Some(preview(PreviewMode::Enabled)))?;
+        assert_eq!(actual, preview_rule);
+
         let actual = resolve_rules(
-            [RuleSelection {
-                select: Some(vec![UnresolvedRuleSelector::cli("FURB145")]),
-                ..RuleSelection::default()
-            }],
+            [select(&["ASYNC119"])],
             Some(PreviewOptions {
                 mode: PreviewMode::Enabled,
                 require_explicit: true,
             }),
         )?;
-        let expected = RuleSet::from_rule(Rule::SliceCopy);
-        assert_eq!(actual, expected);
-        Ok(())
-    }
-
-    #[test]
-    fn select_docstring_convention_override() -> Result<()> {
-        fn assert_override(
-            rule_selections: Vec<RuleSelection>,
-            should_be_overridden: bool,
-        ) -> Result<()> {
-            use ruff_linter::rules::pydocstyle::settings::Convention;
-
-            let config = LintConfiguration {
-                rule_selections,
-                pydocstyle: Some(PydocstyleOptions {
-                    convention: Some(Convention::Numpy),
-                    ..PydocstyleOptions::default()
-                }),
-                ..LintConfiguration::default()
-            };
-
-            let mut expected = RuleSet::from_rules(&[
-                Rule::from_code("D410").unwrap(),
-                Rule::from_code("D411").unwrap(),
-                Rule::from_code("D412").unwrap(),
-                Rule::from_code("D414").unwrap(),
-                Rule::from_code("D418").unwrap(),
-                Rule::from_code("D419").unwrap(),
-            ]);
-            if should_be_overridden {
-                expected.insert(Rule::from_code("D417").unwrap());
-            }
-            assert_eq!(
-                config
-                    .as_rule_table(PreviewMode::Disabled)?
-                    .iter_enabled()
-                    .collect::<RuleSet>(),
-                expected,
-            );
-            Ok(())
-        }
-
-        let d41 = UnresolvedRuleSelector::cli("D41");
-        let d417 = UnresolvedRuleSelector::cli("D417");
-
-        // D417 does not appear when D41 is provided...
-        assert_override(
-            vec![RuleSelection {
-                select: Some(vec![d41.clone()]),
-                ..RuleSelection::default()
-            }],
-            false,
-        )?;
-
-        // ...but does appear when specified directly.
-        assert_override(
-            vec![RuleSelection {
-                select: Some(vec![d41.clone(), d417.clone()]),
-                ..RuleSelection::default()
-            }],
-            true,
-        )?;
-
-        // ...but disappears if there's a subsequent `--select`.
-        assert_override(
-            vec![
-                RuleSelection {
-                    select: Some(vec![d417.clone()]),
-                    ..RuleSelection::default()
-                },
-                RuleSelection {
-                    select: Some(vec![d41.clone()]),
-                    ..RuleSelection::default()
-                },
-            ],
-            false,
-        )?;
-
-        // ...although an `--extend-select` is fine.
-        assert_override(
-            vec![
-                RuleSelection {
-                    select: Some(vec![d417]),
-                    ..RuleSelection::default()
-                },
-                RuleSelection {
-                    extend_select: vec![d41],
-                    ..RuleSelection::default()
-                },
-            ],
-            true,
-        )?;
-
+        assert_eq!(actual, preview_rule);
         Ok(())
     }
 }

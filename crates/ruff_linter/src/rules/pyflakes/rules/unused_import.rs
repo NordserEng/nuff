@@ -3,6 +3,7 @@ use std::iter;
 
 use anyhow::{Result, anyhow, bail};
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 
 use ruff_macros::{ViolationMetadata, derive_message_formats};
 use ruff_python_ast::name::{QualifiedName, QualifiedNameBuilder};
@@ -11,6 +12,7 @@ use ruff_python_semantic::{
     AnyImport, Binding, BindingFlags, BindingId, BindingKind, Exceptions, Imported, NodeId, Scope,
     ScopeId, SemanticModel, SubmoduleImport,
 };
+use ruff_python_stdlib::sys::is_known_standard_library;
 use ruff_text_size::{Ranged, TextRange};
 
 use crate::checkers::ast::Checker;
@@ -20,7 +22,6 @@ use crate::preview::{
     is_dunder_init_fix_unused_import_enabled, is_refined_submodule_import_match_enabled,
 };
 use crate::registry::Rule;
-use crate::rules::{isort, isort::ImportSection, isort::ImportType};
 use crate::settings::LinterSettings;
 use crate::{Applicability, Fix, FixAvailability, Violation};
 
@@ -272,23 +273,36 @@ enum UnusedImportContext {
 }
 
 fn is_first_party(import: &AnyImport, checker: &Checker) -> bool {
-    let source_name = import.source_name().join(".");
-    let category = isort::categorize(
-        &source_name,
-        import.qualified_name().is_unresolved_import(),
-        &checker.settings().src,
-        checker.package(),
-        checker.settings().isort.detect_same_package,
-        &checker.settings().isort.known_modules,
-        checker.target_version(),
-        checker.settings().isort.no_sections,
-        &checker.settings().isort.section_order,
-        &checker.settings().isort.default_section,
-    );
-    matches! {
-        category,
-        ImportSection::Known(ImportType::FirstParty | ImportType::LocalFolder)
+    if import.qualified_name().is_unresolved_import() {
+        return true;
     }
+    let source_name = import.source_name().join(".");
+    let module_base = source_name.split('.').next().unwrap_or_default();
+    if module_base == "__future__"
+        || is_known_standard_library(checker.target_version().minor, module_base)
+    {
+        return false;
+    }
+    checker
+        .package()
+        .is_some_and(|package| package.path().ends_with(module_base))
+        || matches_source(&checker.settings().src, &source_name)
+        || source_name == "__main__"
+}
+
+/// Returns `true` if `name` resolves to a module or package under one of the `src` roots.
+fn matches_source(roots: &[PathBuf], name: &str) -> bool {
+    let relative_path: PathBuf = name.split('.').collect();
+    if relative_path.components().next().is_none() {
+        return false;
+    }
+    roots.iter().any(|root| {
+        let candidate = root.join(&relative_path);
+        candidate.is_dir()
+            || ["py", "pyi"]
+                .into_iter()
+                .any(|extension| candidate.with_extension(extension).is_file())
+    })
 }
 
 /// Find the `Expr` for top-level `__all__` bindings.
@@ -340,18 +354,6 @@ pub(crate) fn unused_import(checker: &Checker, scope: &Scope) {
         };
 
         let name = binding.name(checker.source());
-
-        // If an import is marked as required, avoid treating it as unused, regardless of whether
-        // it was _actually_ used.
-        if checker
-            .settings()
-            .isort
-            .required_imports
-            .iter()
-            .any(|required_import| required_import.matches(name, &import))
-        {
-            continue;
-        }
 
         // If an import was marked as allowed, avoid treating it as unused.
         if checker

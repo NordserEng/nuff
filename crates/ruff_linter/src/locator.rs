@@ -2,8 +2,8 @@
 
 use std::cell::OnceCell;
 
-use ruff_source_file::{LineColumn, LineIndex, LineRanges, OneIndexed, SourceCode};
-use ruff_text_size::{Ranged, TextLen, TextRange, TextSize};
+use ruff_source_file::{LineIndex, LineRanges, OneIndexed, SourceCode};
+use ruff_text_size::{Ranged, TextRange, TextSize};
 
 #[derive(Debug)]
 pub struct Locator<'a> {
@@ -24,13 +24,6 @@ impl<'a> Locator<'a> {
     )]
     pub(crate) fn compute_line_index(&self, offset: TextSize) -> OneIndexed {
         self.to_index().line_index(offset)
-    }
-
-    #[deprecated(
-        note = "This is expensive, avoid using outside of the diagnostic phase. Prefer the other `Locator` methods instead."
-    )]
-    pub(crate) fn compute_source_location(&self, offset: TextSize) -> LineColumn {
-        self.to_source_code().line_column(offset)
     }
 
     pub fn to_index(&self) -> &LineIndex {
@@ -110,34 +103,6 @@ impl<'a> Locator<'a> {
     /// Return the number of bytes in the source code.
     pub(crate) const fn len(&self) -> usize {
         self.contents.len()
-    }
-
-    pub(crate) fn text_len(&self) -> TextSize {
-        self.contents.text_len()
-    }
-}
-
-// Override the `_str` methods from [`LineRanges`] to extend the lifetime to `'a`.
-impl<'a> Locator<'a> {
-    /// Returns the text of the `offset`'s line.
-    ///
-    /// See [`LineRanges::full_lines_str`].
-    pub(crate) fn full_line_str(&self, offset: TextSize) -> &'a str {
-        self.contents.full_line_str(offset)
-    }
-
-    /// Returns the text of the `offset`'s line.
-    ///
-    /// See [`LineRanges::line_str`].
-    pub(crate) fn line_str(&self, offset: TextSize) -> &'a str {
-        self.contents.line_str(offset)
-    }
-
-    /// Returns the text of all lines that include `range`.
-    ///
-    /// See [`LineRanges::lines_str`].
-    pub(crate) fn lines_str(&self, range: TextRange) -> &'a str {
-        self.contents.lines_str(range)
     }
 }
 

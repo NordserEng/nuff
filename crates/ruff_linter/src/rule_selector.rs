@@ -10,7 +10,6 @@ use ruff_ranged_value::{RangedValue, ValueSource};
 use crate::codes::{Category, NoqaCode, RuleCodePrefix, RuleIter, RuleStatus};
 use crate::preview::{is_human_readable_names_enabled, is_rule_categories_enabled};
 use crate::registry::{Linter, Rule, RuleNamespace};
-use crate::rule_redirects::get_redirect;
 use crate::settings::types::PreviewMode;
 use crate::warn_user_once_by_message;
 
@@ -146,32 +145,17 @@ pub enum RuleSelector {
     All,
     /// Select all rules in a semantic category.
     Category(Category),
-    /// Legacy category to select both the `mccabe` and `flake8-comprehensions` linters
-    /// via a single selector.
-    C,
-    /// Legacy category to select both the `flake8-debugger` and `flake8-print` linters
-    /// via a single selector.
-    T,
     /// Select all rules for a given linter.
     Linter(Linter),
     /// Select all rules for a given linter with a given prefix.
-    Prefix {
-        prefix: RuleCodePrefix,
-        redirected_from: Option<&'static str>,
-    },
+    Prefix { prefix: RuleCodePrefix },
     /// Select an individual rule.
-    Rule {
-        rule: Rule,
-        redirected_from: Option<&'static str>,
-    },
+    Rule { rule: Rule },
 }
 
 impl RuleSelector {
     pub(crate) const fn rule(rule: Rule) -> Self {
-        Self::Rule {
-            rule,
-            redirected_from: None,
-        }
+        Self::Rule { rule }
     }
 }
 
@@ -196,14 +180,7 @@ impl FromStr for RuleSelector {
         // **Changes should be reflected in `parse_no_redirect` as well**
         match s {
             "ALL" => Ok(Self::All),
-            "C" => Ok(Self::C),
-            "T" => Ok(Self::T),
             _ => {
-                let (s, redirected_from) = match get_redirect(s) {
-                    Some((from, target)) => (target, Some(from)),
-                    None => (s, None),
-                };
-
                 let (linter, code) =
                     Linter::parse_code(s).ok_or_else(|| ParseError::Unknown(s.to_string()))?;
 
@@ -215,15 +192,9 @@ impl FromStr for RuleSelector {
                     .map_err(|_| ParseError::Unknown(s.to_string()))?;
 
                 if let Some(rule) = prefix.as_rule() {
-                    Ok(Self::Rule {
-                        rule,
-                        redirected_from,
-                    })
+                    Ok(Self::Rule { rule })
                 } else {
-                    Ok(Self::Prefix {
-                        prefix,
-                        redirected_from,
-                    })
+                    Ok(Self::Prefix { prefix })
                 }
             }
         }
@@ -262,8 +233,6 @@ impl RuleSelector {
         match self {
             RuleSelector::All => ("", "ALL"),
             RuleSelector::Category(category) => ("", category.into_str()),
-            RuleSelector::C => ("", "C"),
-            RuleSelector::T => ("", "T"),
             RuleSelector::Prefix { prefix, .. } => {
                 (prefix.linter().common_prefix(), prefix.short_code())
             }
@@ -284,16 +253,6 @@ impl RuleSelector {
                 RuleSelectorIter::Slice(category.rules().iter().copied())
             }
 
-            RuleSelector::C => RuleSelectorIter::Chain(
-                Linter::Flake8Comprehensions
-                    .rules()
-                    .chain(Linter::McCabe.rules()),
-            ),
-            RuleSelector::T => RuleSelectorIter::Chain(
-                Linter::Flake8Debugger
-                    .rules()
-                    .chain(Linter::Flake8Print.rules()),
-            ),
             RuleSelector::Linter(linter) => RuleSelectorIter::Slice(linter.rules()),
             RuleSelector::Prefix { prefix, .. } => RuleSelectorIter::Slice(prefix.rules()),
             RuleSelector::Rule { rule, .. } => RuleSelectorIter::Once(std::iter::once(*rule)),
@@ -331,7 +290,6 @@ type RuleSliceIter = std::iter::Copied<std::slice::Iter<'static, Rule>>;
 
 pub enum RuleSelectorIter {
     All(RuleIter),
-    Chain(std::iter::Chain<RuleSliceIter, RuleSliceIter>),
     Slice(RuleSliceIter),
     Once(std::iter::Once<Rule>),
 }
@@ -342,7 +300,6 @@ impl Iterator for RuleSelectorIter {
     fn next(&mut self) -> Option<Self::Item> {
         match self {
             RuleSelectorIter::All(iter) => iter.next(),
-            RuleSelectorIter::Chain(iter) => iter.next(),
             RuleSelectorIter::Slice(iter) => iter.next(),
             RuleSelectorIter::Once(iter) => iter.next(),
         }
@@ -378,13 +335,6 @@ mod schema {
             let enum_values: Vec<String> = [
                 // Include the non-standard "ALL" selectors.
                 "ALL".to_string(),
-                // Include the legacy "C" and "T" selectors.
-                "C".to_string(),
-                "T".to_string(),
-                // Include some common redirect targets for those legacy selectors.
-                "C9".to_string(),
-                "T1".to_string(),
-                "T2".to_string(),
             ]
             .into_iter()
             .chain(Category::iter().map(|category| category.to_string()))
@@ -448,8 +398,6 @@ impl RuleSelector {
         match self {
             RuleSelector::All => Specificity::All,
             RuleSelector::Category(..) => Specificity::Category,
-            RuleSelector::T => Specificity::LinterGroup,
-            RuleSelector::C => Specificity::LinterGroup,
             RuleSelector::Linter(..) => Specificity::Linter,
             RuleSelector::Rule { .. } => Specificity::Rule,
             RuleSelector::Prefix { prefix, .. } => {
@@ -473,8 +421,6 @@ impl RuleSelector {
         // **Changes should be reflected in `from_str` as well**
         match s {
             "ALL" => Ok(Self::All),
-            "C" => Ok(Self::C),
-            "T" => Ok(Self::T),
             _ => {
                 let (linter, code) =
                     Linter::parse_code(s).ok_or_else(|| ParseError::Unknown(s.to_string()))?;
@@ -487,15 +433,9 @@ impl RuleSelector {
                     .map_err(|_| ParseError::Unknown(s.to_string()))?;
 
                 if let Some(rule) = prefix.as_rule() {
-                    Ok(Self::Rule {
-                        rule,
-                        redirected_from: None,
-                    })
+                    Ok(Self::Rule { rule })
                 } else {
-                    Ok(Self::Prefix {
-                        prefix,
-                        redirected_from: None,
-                    })
+                    Ok(Self::Prefix { prefix })
                 }
             }
         }

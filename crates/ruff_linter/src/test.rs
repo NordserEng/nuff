@@ -31,7 +31,6 @@ use crate::packaging::detect_package_root;
 use crate::settings::types::UnsafeFixes;
 use crate::settings::{LinterSettings, flags};
 use crate::source_kind::SourceKind;
-use crate::suppression::Suppressions;
 use crate::{Applicability, FixAvailability};
 use crate::{Locator, directives};
 
@@ -53,8 +52,8 @@ pub(crate) struct DiagnosticsDiff {
 impl std::fmt::Display for DiagnosticsDiff {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         writeln!(f, "--- Linter settings ---")?;
-        let settings_before_str = format!("{}", self.settings_before);
-        let settings_after_str = format!("{}", self.settings_after);
+        let settings_before_str = format!("{:#?}", self.settings_before);
+        let settings_after_str = format!("{:#?}", self.settings_after);
         let diff = similar::TextDiff::from_lines(&settings_before_str, &settings_after_str);
         for change in diff.iter_all_changes() {
             match change.tag() {
@@ -134,24 +133,6 @@ pub(crate) fn test_path(
     Ok(test_contents(&source_kind, &path, settings).0)
 }
 
-/// Run the configuration TOML linter on a file in the `resources/test/fixtures` directory.
-#[cfg(test)]
-pub(crate) fn test_toml_path(
-    path: impl AsRef<Path>,
-    settings: &LinterSettings,
-    source_type: ruff_python_ast::TomlSourceType,
-) -> Result<Vec<Diagnostic>> {
-    let path = test_resource_path("fixtures").join(path);
-    let filename = path.file_name().unwrap_or_else(|| path.as_os_str());
-    let contents = std::fs::read_to_string(&path)?;
-    Ok(crate::toml::lint_toml(
-        Path::new(filename),
-        &contents,
-        settings,
-        source_type,
-    ))
-}
-
 /// Test a file with two different settings and return the differences
 #[cfg(test)]
 pub(crate) fn test_path_with_settings_diff(
@@ -160,7 +141,7 @@ pub(crate) fn test_path_with_settings_diff(
     settings_after: &LinterSettings,
 ) -> Result<DiagnosticsDiff> {
     assert!(
-        format!("{settings_before}") != format!("{settings_after}"),
+        format!("{settings_before:?}") != format!("{settings_after:?}"),
         "Settings must be different for differential testing"
     );
 
@@ -257,14 +238,7 @@ pub fn test_contents<'a>(
     let locator = Locator::new(source_kind.source_code());
     let stylist = Stylist::from_tokens(parsed.tokens(), locator.contents());
     let indexer = Indexer::from_tokens(parsed.tokens(), locator.contents());
-    let directives = directives::extract_directives(
-        parsed.tokens(),
-        directives::Flags::from_settings(settings),
-        &locator,
-        &indexer,
-    );
-    let suppressions =
-        Suppressions::from_tokens(locator.contents(), parsed.tokens(), &indexer, settings);
+    let directives = directives::extract_directives(parsed.tokens(), &locator, &indexer);
     let messages = check_path(
         path,
         path.parent()
@@ -280,7 +254,6 @@ pub fn test_contents<'a>(
         source_type,
         &parsed,
         target_version,
-        &suppressions,
     );
 
     let source_has_errors = parsed.has_invalid_syntax();
@@ -325,15 +298,7 @@ pub fn test_contents<'a>(
             let locator = Locator::new(transformed.source_code());
             let stylist = Stylist::from_tokens(parsed.tokens(), locator.contents());
             let indexer = Indexer::from_tokens(parsed.tokens(), locator.contents());
-            let directives = directives::extract_directives(
-                parsed.tokens(),
-                directives::Flags::from_settings(settings),
-                &locator,
-                &indexer,
-            );
-
-            let suppressions =
-                Suppressions::from_tokens(locator.contents(), parsed.tokens(), &indexer, settings);
+            let directives = directives::extract_directives(parsed.tokens(), &locator, &indexer);
             let fixed_messages = check_path(
                 path,
                 None,
@@ -347,7 +312,6 @@ pub fn test_contents<'a>(
                 source_type,
                 &parsed,
                 target_version,
-                &suppressions,
             );
 
             if parsed.has_invalid_syntax() && !source_has_errors {
@@ -568,7 +532,7 @@ mod tests {
         use crate::codes::Rule;
         use ruff_db::diagnostic::{DiagnosticId, LintName};
 
-        let settings_before = LinterSettings::for_rule(Rule::Print);
+        let settings_before = LinterSettings::for_rule(Rule::UnusedVariable);
         let settings_after = LinterSettings::for_rule(Rule::UnusedImport);
 
         let test_code = r#"
@@ -576,7 +540,7 @@ import sys
 import unused_module
 
 def main():
-    print(sys.version)
+    unused = sys.version
 "#;
 
         let temp_dir = std::env::temp_dir();
@@ -586,11 +550,15 @@ def main():
         let diff =
             super::test_path_with_settings_diff(&test_file, &settings_before, &settings_after)?;
 
-        assert_eq!(diff.removed.len(), 1, "Should remove 1 print diagnostic");
+        assert_eq!(
+            diff.removed.len(),
+            1,
+            "Should remove 1 unused variable diagnostic"
+        );
         assert_eq!(
             diff.removed[0].id(),
-            DiagnosticId::Lint(LintName::of("print")),
-            "Should remove the print diagnostic"
+            DiagnosticId::Lint(LintName::of("unused-variable")),
+            "Should remove the unused variable diagnostic"
         );
         assert_eq!(diff.added.len(), 1, "Should add 1 unused import diagnostic");
         assert_eq!(
