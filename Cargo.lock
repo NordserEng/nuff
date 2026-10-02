@@ -18,15 +18,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
 
 [[package]]
-name = "android_system_properties"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "819e7219dbd41043ac279b19830f2efc897156490d7fd6ea916720117ee66311"
-dependencies = [
- "libc",
-]
-
-[[package]]
 name = "annotate-snippets"
 version = "0.11.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -353,12 +344,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
-name = "cfg_aliases"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
-
-[[package]]
 name = "chacha20"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -388,9 +373,7 @@ version = "0.4.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c673075a2e0e5f4a1dde27ce9dee1ea4558c7ffe648f576438a20ca1d2acc4b0"
 dependencies = [
- "iana-time-zone",
  "num-traits",
- "windows-link 0.2.1",
 ]
 
 [[package]]
@@ -417,36 +400,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "clap_complete"
-version = "4.5.58"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75bf0b32ad2e152de789bb635ea4d3078f6b838ad7974143e99b99f45a04af4a"
-dependencies = [
- "clap",
-]
-
-[[package]]
-name = "clap_complete_command"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da8e198c052315686d36371e8a3c5778b7852fc75cc313e4e11eeb7a644a1b62"
-dependencies = [
- "clap",
- "clap_complete",
- "clap_complete_nushell",
-]
-
-[[package]]
-name = "clap_complete_nushell"
-version = "4.5.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a0c951694691e65bf9d421d597d68416c22de9632e884c28412cb8cd8b73dce"
-dependencies = [
- "clap",
- "clap_complete",
-]
-
-[[package]]
 name = "clap_derive"
 version = "4.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -463,19 +416,6 @@ name = "clap_lex"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a822ea5bc7590f9d40f1ba12c0dc3c2760f3482c6984db1573ad11031420831"
-
-[[package]]
-name = "clearscreen"
-version = "4.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d669bb552908e336ad5681789752033b45566b7e591aeaac7a614e58e5d6d8f2"
-dependencies = [
- "nix",
- "terminfo",
- "thiserror 2.0.20",
- "which",
- "windows-sys 0.59.0",
-]
 
 [[package]]
 name = "collection_literals"
@@ -524,18 +464,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "core-foundation-sys"
-version = "0.8.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
-
-[[package]]
-name = "countme"
-version = "3.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7704b5fdd17b18ae31c4c1da5a2e0305a2bf17b5249300a9ee9ed7b72114c636"
-
-[[package]]
 name = "cpufeatures"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -560,28 +488,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9481c1c90cbf2ac953f07c8d4a58aa3945c425b7185c9154d67a65e4230da511"
 dependencies = [
  "cfg-if",
-]
-
-[[package]]
-name = "crossbeam"
-version = "0.8.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1137cd7e7fc0fb5d3c5a8678be38ec56e819125d8d7907411fe24ccb943faca8"
-dependencies = [
- "crossbeam-channel",
- "crossbeam-deque",
- "crossbeam-epoch",
- "crossbeam-queue",
- "crossbeam-utils",
-]
-
-[[package]]
-name = "crossbeam-channel"
-version = "0.5.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82b8f8f868b36967f9606790d1903570de9ceaf870a7bf9fbbd3016d636a2cb2"
-dependencies = [
- "crossbeam-utils",
 ]
 
 [[package]]
@@ -861,12 +767,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
 
 [[package]]
-name = "fnv"
-version = "1.0.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
-
-[[package]]
 name = "foldhash"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -897,15 +797,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fsevent-sys"
-version = "4.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76ee7a02da4d231650c7cea31349b889be2f45ddb3ef3032d2ec8185f6313fd2"
-dependencies = [
- "libc",
-]
-
-[[package]]
 name = "futures-core"
 version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -927,17 +818,6 @@ dependencies = [
  "futures-task",
  "pin-project-lite",
  "slab",
-]
-
-[[package]]
-name = "gen-lsp-types"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b64887ac3a8083427ae935a7296db876871582cd57eac077564f8bc18fa49116"
-dependencies = [
- "serde",
- "serde_json",
- "url",
 ]
 
 [[package]]
@@ -1089,30 +969,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "iana-time-zone"
-version = "0.1.64"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33e57f83510bb73707521ebaffa789ec8caf86f9657cad665b092b581d40e9fb"
-dependencies = [
- "android_system_properties",
- "core-foundation-sys",
- "iana-time-zone-haiku",
- "js-sys",
- "log",
- "wasm-bindgen",
- "windows-core",
-]
-
-[[package]]
-name = "iana-time-zone-haiku"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f31827a206f56af32e590ba56d5d2d085f558508192593743f16b2306495269f"
-dependencies = [
- "cc",
-]
-
-[[package]]
 name = "icu_collections"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1260,35 +1116,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "indoc"
-version = "2.0.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79cf5c93f93228cf8efb3ba362535fb11199ac548a09ce117c9b1adc3030d706"
-dependencies = [
- "rustversion",
-]
-
-[[package]]
-name = "inotify"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f37dccff2791ab604f9babef0ba14fbe0be30bd368dc541e2b08d07c8aa908f3"
-dependencies = [
- "bitflags 2.13.1",
- "inotify-sys",
- "libc",
-]
-
-[[package]]
-name = "inotify-sys"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e05c02b5e89bff3b946cedeca278abc628fe811e604f027c45a8aa3cf793d0eb"
-dependencies = [
- "libc",
-]
-
-[[package]]
 name = "insta"
 version = "1.48.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1303,17 +1130,6 @@ dependencies = [
  "similar 2.7.0",
  "strip-ansi-escapes",
  "tempfile",
-]
-
-[[package]]
-name = "insta-cmd"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bffdf4af1db390cf0401535d7c1303cd079a074d28d8473b026fdb6559c41403"
-dependencies = [
- "insta",
- "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -1436,12 +1252,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "jod-thread"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a037eddb7d28de1d0fc42411f501b53b75838d313908078d6698d064f3029b24"
-
-[[package]]
 name = "js-sys"
 version = "0.3.100"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1450,26 +1260,6 @@ dependencies = [
  "cfg-if",
  "futures-util",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "kqueue"
-version = "1.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eac30106d7dce88daf4a3fcb4879ea939476d5074a9b7ddd0fb97fa4bed5596a"
-dependencies = [
- "kqueue-sys",
- "libc",
-]
-
-[[package]]
-name = "kqueue-sys"
-version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed9625ffda8729b85e45cf04090035ac368927b8cebc34898e7c120f52e4838b"
-dependencies = [
- "bitflags 1.3.2",
- "libc",
 ]
 
 [[package]]
@@ -1513,15 +1303,6 @@ checksum = "57a1ac6fb3fbdc3408a2f138e54d11c3dd338f12c2efc3db47477cc2227d89c2"
 dependencies = [
  "quote",
  "syn 2.0.119",
-]
-
-[[package]]
-name = "libmimalloc-sys"
-version = "0.1.49"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a45a52f43e1c16f667ccfe4dd8c85b7f7c204fd5e3bf46c5b0db9a5c3c0b8e9"
-dependencies = [
- "cc",
 ]
 
 [[package]]
@@ -1572,19 +1353,6 @@ name = "log"
 version = "0.4.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
-
-[[package]]
-name = "lsp-server"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ee25a31f2e571e426eef2896179450cafc7e2f5be00d8a93b1c2d21c0ff7656"
-dependencies = [
- "crossbeam-channel",
- "log",
- "serde",
- "serde_derive",
- "serde_json",
-]
 
 [[package]]
 name = "manyhow"
@@ -1640,33 +1408,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mimalloc"
-version = "0.1.52"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d4139bb28d14ad1facf21d5eb8825051b326e172d216b39f6d31df53cc97862"
-dependencies = [
- "libmimalloc-sys",
-]
-
-[[package]]
-name = "minimal-lexical"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
-
-[[package]]
-name = "mio"
-version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78bed444cc8a2160f01cbcf811ef18cac863ad68ae8ca62092e8db51d51c761c"
-dependencies = [
- "libc",
- "log",
- "wasi",
- "windows-sys 0.59.0",
-]
-
-[[package]]
 name = "munge"
 version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1702,56 +1443,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "nix"
-version = "0.31.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d6d0705320c1e6ba1d912b5e37cf18071b6c2e9b7fa8215a1e8a7651966f5d3"
-dependencies = [
- "bitflags 2.13.1",
- "cfg-if",
- "cfg_aliases",
- "libc",
-]
-
-[[package]]
-name = "nom"
-version = "7.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d273983c5a657a70a3e8f2a01329822f3b8c8172b73826411a55751e404a0a4a"
-dependencies = [
- "memchr",
- "minimal-lexical",
-]
-
-[[package]]
 name = "normalize-line-endings"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61807f77802ff30975e01f4f071c8ba10c022052f98b3294119f3e615d13e5be"
-
-[[package]]
-name = "notify"
-version = "8.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d3d07927151ff8575b7087f245456e549fea62edf0ec4e565a5ee50c8402bc3"
-dependencies = [
- "bitflags 2.13.1",
- "fsevent-sys",
- "inotify",
- "kqueue",
- "libc",
- "log",
- "mio",
- "notify-types",
- "walkdir",
- "windows-sys 0.60.2",
-]
-
-[[package]]
-name = "notify-types"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e0826a989adedc2a244799e823aece04662b66609d96af8dff7ac6df9a8925d"
 
 [[package]]
 name = "nu-ansi-term"
@@ -1767,12 +1462,50 @@ name = "nuff"
 version = "0.2.0"
 dependencies = [
  "anyhow",
+ "assert_fs",
+ "bitflags 2.13.1",
+ "cachedir",
  "clap",
  "colored",
- "mimalloc",
- "ruff",
+ "filetime",
+ "globwalk",
+ "ignore",
+ "indexmap",
+ "insta",
+ "is-macro",
+ "itertools 0.15.0",
+ "jiff",
+ "log",
+ "path-absolutize",
+ "rayon",
+ "regex",
+ "rkyv",
+ "ruff_cache",
  "ruff_command_line",
+ "ruff_db",
+ "ruff_diagnostics",
+ "ruff_linter",
+ "ruff_macros",
+ "ruff_notebook",
+ "ruff_options_metadata",
+ "ruff_python_ast",
+ "ruff_python_parser",
+ "ruff_ranged_value",
+ "ruff_source_file",
+ "ruff_text_size",
+ "ruff_workspace",
+ "rustc-hash",
+ "serde",
+ "serde_json",
+ "shellexpand",
+ "strum",
+ "tempfile",
+ "test-case",
+ "thiserror 2.0.20",
  "tikv-jemallocator",
+ "toml 1.1.4+spec-1.1.0",
+ "tracing",
+ "walkdir",
  "wild",
 ]
 
@@ -2472,70 +2205,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ruff"
-version = "0.16.10"
-dependencies = [
- "anyhow",
- "assert_fs",
- "bitflags 2.13.1",
- "cachedir",
- "clap",
- "clap_complete_command",
- "clearscreen",
- "colored",
- "dunce",
- "filetime",
- "globwalk",
- "ignore",
- "indexmap",
- "indoc",
- "insta",
- "insta-cmd",
- "is-macro",
- "itertools 0.15.0",
- "jiff",
- "log",
- "mimalloc",
- "notify",
- "path-absolutize",
- "rayon",
- "regex",
- "rkyv",
- "ruff_cache",
- "ruff_command_line",
- "ruff_db",
- "ruff_diagnostics",
- "ruff_graph",
- "ruff_linter",
- "ruff_macros",
- "ruff_markdown",
- "ruff_notebook",
- "ruff_options_metadata",
- "ruff_python_ast",
- "ruff_python_formatter",
- "ruff_python_parser",
- "ruff_python_trivia",
- "ruff_ranged_value",
- "ruff_server",
- "ruff_source_file",
- "ruff_text_size",
- "ruff_workspace",
- "rustc-hash",
- "serde",
- "serde_json",
- "shellexpand",
- "strum",
- "tempfile",
- "test-case",
- "thiserror 2.0.20",
- "tikv-jemallocator",
- "toml 1.1.4+spec-1.1.0",
- "tracing",
- "walkdir",
- "wild",
-]
-
-[[package]]
 name = "ruff_annotate_snippets"
 version = "0.0.16"
 dependencies = [
@@ -2626,43 +2295,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ruff_formatter"
-version = "0.0.16"
-dependencies = [
- "drop_bomb",
- "ruff_cache",
- "ruff_macros",
- "ruff_text_size",
- "rustc-hash",
- "schemars",
- "serde",
- "static_assertions",
- "tracing",
- "unicode-width",
-]
-
-[[package]]
-name = "ruff_graph"
-version = "0.0.16"
-dependencies = [
- "anyhow",
- "clap",
- "memchr",
- "ruff_cache",
- "ruff_db",
- "ruff_linter",
- "ruff_macros",
- "ruff_python_ast",
- "ruff_python_parser",
- "salsa",
- "schemars",
- "serde",
- "ty_module_resolver",
- "ty_site_packages",
- "zip",
-]
-
-[[package]]
 name = "ruff_index"
 version = "0.0.16"
 dependencies = [
@@ -2749,21 +2381,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ruff_markdown"
-version = "0.0.16"
-dependencies = [
- "insta",
- "regex",
- "ruff_linter",
- "ruff_python_ast",
- "ruff_python_formatter",
- "ruff_python_trivia",
- "ruff_source_file",
- "ruff_text_size",
- "ruff_workspace",
-]
-
-[[package]]
 name = "ruff_memory_usage"
 version = "0.0.16"
 dependencies = [
@@ -2839,39 +2456,6 @@ dependencies = [
  "ruff_python_parser",
  "ruff_source_file",
  "ruff_text_size",
-]
-
-[[package]]
-name = "ruff_python_formatter"
-version = "0.0.16"
-dependencies = [
- "anyhow",
- "clap",
- "countme",
- "datatest-stable",
- "insta",
- "itertools 0.15.0",
- "memchr",
- "regex",
- "ruff_cache",
- "ruff_db",
- "ruff_formatter",
- "ruff_macros",
- "ruff_python_ast",
- "ruff_python_parser",
- "ruff_python_trivia",
- "ruff_source_file",
- "ruff_text_size",
- "rustc-hash",
- "salsa",
- "schemars",
- "serde",
- "serde_json",
- "similar 3.2.0",
- "smallvec",
- "static_assertions",
- "thiserror 2.0.20",
- "tracing",
 ]
 
 [[package]]
@@ -2997,50 +2581,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ruff_server"
-version = "0.0.16"
-dependencies = [
- "anyhow",
- "crossbeam",
- "dunce",
- "gen-lsp-types",
- "ignore",
- "insta",
- "jod-thread",
- "libc",
- "lsp-server",
- "memchr",
- "regex",
- "ruff_db",
- "ruff_diagnostics",
- "ruff_formatter",
- "ruff_linter",
- "ruff_markdown",
- "ruff_notebook",
- "ruff_python_ast",
- "ruff_python_codegen",
- "ruff_python_formatter",
- "ruff_python_index",
- "ruff_python_parser",
- "ruff_ranged_value",
- "ruff_source_file",
- "ruff_text_size",
- "ruff_workspace",
- "rustc-hash",
- "serde",
- "serde_json",
- "shellexpand",
- "smallvec",
- "tempfile",
- "test-case",
- "thiserror 2.0.20",
- "toml 1.1.4+spec-1.1.0",
- "tracing",
- "tracing-log",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "ruff_source_file"
 version = "0.0.16"
 dependencies = [
@@ -3082,13 +2622,10 @@ dependencies = [
  "regex",
  "ruff_cache",
  "ruff_db",
- "ruff_formatter",
- "ruff_graph",
  "ruff_linter",
  "ruff_macros",
  "ruff_options_metadata",
  "ruff_python_ast",
- "ruff_python_formatter",
  "ruff_python_semantic",
  "ruff_python_stdlib",
  "ruff_ranged_value",
@@ -3539,18 +3076,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "terminfo"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4ea810f0692f9f51b382fff5893887bb4580f5fa246fde546e0b13e7fcee662"
-dependencies = [
- "fnv",
- "nom",
- "phf 0.11.3",
- "phf_codegen",
-]
-
-[[package]]
 name = "termtree"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3785,18 +3310,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "db97caf9d906fbde555dd62fa95ddba9eecfd14cb388e4f491a66d74cd5fb79a"
 dependencies = [
  "once_cell",
- "valuable",
-]
-
-[[package]]
-name = "tracing-log"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee855f1f400bd0e5c02d150ae5de3840039a3f54b025156404e34c23c03f47c3"
-dependencies = [
- "log",
- "once_cell",
- "tracing-core",
 ]
 
 [[package]]
@@ -3805,7 +3318,6 @@ version = "0.3.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb7f578e5945fb242538965c2d0b04418d38ec25c79d160cd279bf0731c8d319"
 dependencies = [
- "chrono",
  "matchers",
  "nu-ansi-term",
  "once_cell",
@@ -3815,54 +3327,6 @@ dependencies = [
  "thread_local",
  "tracing",
  "tracing-core",
-]
-
-[[package]]
-name = "ty_module_resolver"
-version = "0.0.16"
-dependencies = [
- "anyhow",
- "camino",
- "compact_str",
- "get-size2",
- "insta",
- "itertools 0.15.0",
- "memchr",
- "ordermap",
- "regex",
- "regex-syntax",
- "ruff_db",
- "ruff_memory_usage",
- "ruff_python_ast",
- "ruff_python_stdlib",
- "rustc-hash",
- "salsa",
- "strum",
- "strum_macros",
- "tempfile",
- "thiserror 2.0.20",
- "tracing",
-]
-
-[[package]]
-name = "ty_site_packages"
-version = "0.0.16"
-dependencies = [
- "camino",
- "colored",
- "get-size2",
- "indexmap",
- "ruff_annotate_snippets",
- "ruff_db",
- "ruff_python_ast",
- "ruff_python_trivia",
- "ruff_source_file",
- "ruff_text_size",
- "strum",
- "strum_macros",
- "tempfile",
- "tracing",
- "ty_static",
 ]
 
 [[package]]
@@ -4003,12 +3467,6 @@ dependencies = [
  "js-sys",
  "wasm-bindgen",
 ]
-
-[[package]]
-name = "valuable"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
 
 [[package]]
 name = "version-ranges"
@@ -4194,41 +3652,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "windows-core"
-version = "0.62.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57fe7168f7de578d2d8a05b07fd61870d2e73b4020e9f49aa00da8471723497c"
-dependencies = [
- "windows-implement",
- "windows-interface",
- "windows-link 0.2.1",
- "windows-result",
- "windows-strings",
-]
-
-[[package]]
-name = "windows-implement"
-version = "0.60.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a47fddd13af08290e67f4acabf4b459f647552718f683a7b415d290ac744a836"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.119",
-]
-
-[[package]]
-name = "windows-interface"
-version = "0.59.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd9211b69f8dcdfa817bfd14bf1c97c9188afa36f4750130fcdf3f400eca9fa8"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.119",
-]
-
-[[package]]
 name = "windows-link"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4239,24 +3662,6 @@ name = "windows-link"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0805222e57f7521d6a62e36fa9163bc891acd422f971defe97d64e70d0a4fe5"
-
-[[package]]
-name = "windows-result"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7084dcc306f89883455a206237404d3eaf961e5bd7e0f312f7c91f57eb44167f"
-dependencies = [
- "windows-link 0.2.1",
-]
-
-[[package]]
-name = "windows-strings"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7218c655a553b0bed4426cf54b20d7ba363ef543b52d515b3e48d7fd55318dda"
-dependencies = [
- "windows-link 0.2.1",
-]
 
 [[package]]
 name = "windows-sys"

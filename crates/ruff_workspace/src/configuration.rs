@@ -3,9 +3,7 @@
 //! the various parameters.
 
 use std::borrow::Cow;
-use std::collections::BTreeMap;
 use std::env::VarError;
-use std::num::{NonZeroU8, NonZeroU16};
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow};
@@ -21,8 +19,6 @@ use shellexpand::LookupError;
 use strum::IntoEnumIterator;
 
 use ruff_cache::cache_dir;
-use ruff_formatter::IndentStyle;
-use ruff_graph::{AnalyzeSettings, Direction, StringImports};
 use ruff_linter::line_width::{IndentWidth, LineLength};
 use ruff_linter::registry::{INCOMPATIBLE_CODES, Rule, RuleSet};
 use ruff_linter::rule_selector::{PreviewOptions, RuleResolutionError, Specificity};
@@ -42,27 +38,21 @@ use ruff_linter::{
     warn_user_once_by_message,
 };
 use ruff_python_ast as ast;
-use ruff_python_formatter::{
-    DocstringCode, DocstringCodeLineWidth, MagicTrailingComma, QuoteStyle,
-};
 
 use crate::options::{
-    AnalyzeOptions, Flake8AnnotationsOptions, Flake8BanditOptions, Flake8BooleanTrapOptions,
-    Flake8BugbearOptions, Flake8BuiltinsOptions, Flake8ComprehensionsOptions,
-    Flake8CopyrightOptions, Flake8ErrMsgOptions, Flake8GetTextOptions,
-    Flake8ImplicitStrConcatOptions, Flake8ImportConventionsOptions, Flake8PytestStyleOptions,
-    Flake8QuotesOptions, Flake8SelfOptions, Flake8TidyImportsOptions, Flake8TypeCheckingOptions,
-    Flake8UnusedArgumentsOptions, FormatOptions, IsortOptions, LintCommonOptions, LintOptions,
-    McCabeOptions, NuffOptions, Options, Pep8NamingOptions, PyUpgradeOptions, PycodestyleOptions,
+    Flake8AnnotationsOptions, Flake8BanditOptions, Flake8BooleanTrapOptions, Flake8BugbearOptions,
+    Flake8BuiltinsOptions, Flake8ComprehensionsOptions, Flake8CopyrightOptions,
+    Flake8ErrMsgOptions, Flake8GetTextOptions, Flake8ImplicitStrConcatOptions,
+    Flake8ImportConventionsOptions, Flake8PytestStyleOptions, Flake8QuotesOptions,
+    Flake8SelfOptions, Flake8TidyImportsOptions, Flake8TypeCheckingOptions,
+    Flake8UnusedArgumentsOptions, IsortOptions, LintCommonOptions, LintOptions, McCabeOptions,
+    NuffOptions, Options, Pep8NamingOptions, PyUpgradeOptions, PycodestyleOptions,
     PydoclintOptions, PydocstyleOptions, PyflakesOptions, PylintOptions, RuffOptions,
     validate_required_version,
 };
 use crate::pyproject;
 use crate::resolver::ConfigurationOrigin;
-use crate::settings::{
-    EXCLUDE, FileResolverSettings, FormatterSettings, INCLUDE, INCLUDE_PREVIEW, LineEnding,
-    Settings,
-};
+use crate::settings::{EXCLUDE, FileResolverSettings, INCLUDE, INCLUDE_PREVIEW, Settings};
 
 #[derive(Clone, Debug, Default)]
 pub struct RuleSelection {
@@ -206,8 +196,6 @@ pub struct Configuration {
     pub indent_width: Option<IndentWidth>,
 
     pub lint: LintConfiguration,
-    pub format: FormatConfiguration,
-    pub analyze: AnalyzeConfiguration,
 }
 
 impl Configuration {
@@ -217,80 +205,13 @@ impl Configuration {
         }
 
         let linter_target_version = TargetVersion(self.target_version);
-        let target_version = self.target_version.unwrap_or_default();
+        let _target_version = self.target_version.unwrap_or_default();
         let global_preview = self.preview.unwrap_or_default();
-
-        let format = self.format;
-        let format_defaults = FormatterSettings::default();
-
-        let quote_style = format.quote_style.unwrap_or(format_defaults.quote_style);
-        let format_preview = match format.preview.unwrap_or(global_preview) {
-            PreviewMode::Disabled => ruff_python_formatter::PreviewMode::Disabled,
-            PreviewMode::Enabled => ruff_python_formatter::PreviewMode::Enabled,
-        };
 
         let per_file_target_version = CompiledPerFileTargetVersionList::resolve(
             self.per_file_target_version.unwrap_or_default(),
         )
         .context("failed to resolve `per-file-target-version` table")?;
-
-        let formatter = FormatterSettings {
-            exclude: FilePatternSet::try_from_iter(format.exclude.unwrap_or_default())?,
-            extension: self.extension.clone().unwrap_or_default(),
-            preview: format_preview,
-            unresolved_target_version: target_version,
-            per_file_target_version: per_file_target_version.clone(),
-            line_width: self
-                .line_length
-                .map_or(format_defaults.line_width, |length| {
-                    ruff_formatter::LineWidth::from(NonZeroU16::from(length))
-                }),
-            line_ending: format.line_ending.unwrap_or(format_defaults.line_ending),
-            indent_style: format.indent_style.unwrap_or(format_defaults.indent_style),
-            indent_width: self
-                .indent_width
-                .map_or(format_defaults.indent_width, |tab_size| {
-                    ruff_formatter::IndentWidth::from(NonZeroU8::from(tab_size))
-                }),
-            quote_style,
-            nested_string_quote_style: format
-                .nested_string_quote_style
-                .unwrap_or(format_defaults.nested_string_quote_style),
-            magic_trailing_comma: format
-                .magic_trailing_comma
-                .unwrap_or(format_defaults.magic_trailing_comma),
-            docstring_code_format: format
-                .docstring_code_format
-                .unwrap_or(format_defaults.docstring_code_format),
-            docstring_code_line_width: format
-                .docstring_code_line_width
-                .unwrap_or(format_defaults.docstring_code_line_width),
-        };
-
-        let analyze = self.analyze;
-        let analyze_preview = analyze.preview.unwrap_or(global_preview);
-        let analyze_defaults = AnalyzeSettings::default();
-
-        let analyze = AnalyzeSettings {
-            exclude: FilePatternSet::try_from_iter(analyze.exclude.unwrap_or_default())?,
-            preview: analyze_preview,
-            target_version,
-            extension: self.extension.clone().unwrap_or_default(),
-            string_imports: StringImports {
-                enabled: analyze
-                    .detect_string_imports
-                    .unwrap_or(analyze_defaults.string_imports.enabled),
-                min_dots: analyze
-                    .string_imports_min_dots
-                    .unwrap_or(analyze_defaults.string_imports.min_dots),
-            },
-            include_dependencies: analyze
-                .include_dependencies
-                .unwrap_or(analyze_defaults.include_dependencies),
-            type_checking_imports: analyze
-                .type_checking_imports
-                .unwrap_or(analyze_defaults.type_checking_imports),
-        };
 
         let lint = self.lint;
         let lint_preview = lint.preview.unwrap_or(global_preview);
@@ -520,9 +441,6 @@ impl Configuration {
                 typing_extensions: lint.typing_extensions.unwrap_or(true),
                 future_annotations,
             },
-
-            formatter,
-            analyze,
         })
     }
 
@@ -642,14 +560,6 @@ impl Configuration {
             }),
             extension: options.extension.map(ExtensionMapping::from),
             lint: LintConfiguration::from_options(lint, project_root)?,
-            format: FormatConfiguration::from_options(
-                options.format.unwrap_or_default(),
-                project_root,
-            )?,
-            analyze: AnalyzeConfiguration::from_options(
-                options.analyze.unwrap_or_default(),
-                project_root,
-            )?,
         })
     }
 
@@ -694,8 +604,6 @@ impl Configuration {
             extension: self.extension.or(config.extension),
 
             lint: self.lint.combine(config.lint),
-            format: self.format.combine(config.format),
-            analyze: self.analyze.combine(config.analyze),
         }
     }
 
@@ -1330,136 +1238,6 @@ impl LintConfiguration {
             ruff: self.ruff.combine(config.ruff),
             typing_extensions: self.typing_extensions.or(config.typing_extensions),
             future_annotations: self.future_annotations.or(config.future_annotations),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct FormatConfiguration {
-    pub exclude: Option<Vec<FilePattern>>,
-    pub preview: Option<PreviewMode>,
-    pub extension: Option<ExtensionMapping>,
-
-    pub indent_style: Option<IndentStyle>,
-    pub quote_style: Option<QuoteStyle>,
-    pub nested_string_quote_style: Option<ruff_python_formatter::NestedStringQuoteStyle>,
-    pub magic_trailing_comma: Option<MagicTrailingComma>,
-    pub line_ending: Option<LineEnding>,
-    pub docstring_code_format: Option<DocstringCode>,
-    pub docstring_code_line_width: Option<DocstringCodeLineWidth>,
-}
-
-impl FormatConfiguration {
-    pub fn from_options(options: FormatOptions, project_root: &Path) -> Result<Self> {
-        Ok(Self {
-            // `--extension` is a hidden command-line argument that isn't supported in configuration
-            // files at present.
-            extension: None,
-            exclude: options.exclude.map(|paths| {
-                paths
-                    .into_iter()
-                    .map(|pattern| {
-                        let absolute = GlobPath::normalize(&pattern, project_root);
-                        FilePattern::User(pattern, absolute)
-                    })
-                    .collect()
-            }),
-            preview: options.preview.map(PreviewMode::from),
-            indent_style: options.indent_style,
-            quote_style: options.quote_style,
-            nested_string_quote_style: options.nested_string_quote_style,
-            magic_trailing_comma: options.skip_magic_trailing_comma.map(|skip| {
-                if skip {
-                    MagicTrailingComma::Ignore
-                } else {
-                    MagicTrailingComma::Respect
-                }
-            }),
-            line_ending: options.line_ending,
-            docstring_code_format: options.docstring_code_format.map(|yes| {
-                if yes {
-                    DocstringCode::Enabled
-                } else {
-                    DocstringCode::Disabled
-                }
-            }),
-            docstring_code_line_width: options.docstring_code_line_length,
-        })
-    }
-
-    #[must_use]
-    fn combine(self, config: Self) -> Self {
-        Self {
-            exclude: self.exclude.or(config.exclude),
-            preview: self.preview.or(config.preview),
-            extension: self.extension.or(config.extension),
-            indent_style: self.indent_style.or(config.indent_style),
-            quote_style: self.quote_style.or(config.quote_style),
-            nested_string_quote_style: self
-                .nested_string_quote_style
-                .or(config.nested_string_quote_style),
-            magic_trailing_comma: self.magic_trailing_comma.or(config.magic_trailing_comma),
-            line_ending: self.line_ending.or(config.line_ending),
-            docstring_code_format: self.docstring_code_format.or(config.docstring_code_format),
-            docstring_code_line_width: self
-                .docstring_code_line_width
-                .or(config.docstring_code_line_width),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct AnalyzeConfiguration {
-    pub exclude: Option<Vec<FilePattern>>,
-    pub preview: Option<PreviewMode>,
-
-    pub direction: Option<Direction>,
-    pub detect_string_imports: Option<bool>,
-    pub string_imports_min_dots: Option<usize>,
-    pub include_dependencies: Option<BTreeMap<PathBuf, (PathBuf, Vec<String>)>>,
-    pub type_checking_imports: Option<bool>,
-}
-
-impl AnalyzeConfiguration {
-    pub fn from_options(options: AnalyzeOptions, project_root: &Path) -> Result<Self> {
-        Ok(Self {
-            exclude: options.exclude.map(|paths| {
-                paths
-                    .into_iter()
-                    .map(|pattern| {
-                        let absolute = GlobPath::normalize(&pattern, project_root);
-                        FilePattern::User(pattern, absolute)
-                    })
-                    .collect()
-            }),
-            preview: options.preview.map(PreviewMode::from),
-            direction: options.direction,
-            detect_string_imports: options.detect_string_imports,
-            string_imports_min_dots: options.string_imports_min_dots,
-            include_dependencies: options.include_dependencies.map(|dependencies| {
-                dependencies
-                    .into_iter()
-                    .map(|(key, value)| {
-                        (project_root.join(key), (project_root.to_path_buf(), value))
-                    })
-                    .collect::<BTreeMap<_, _>>()
-            }),
-            type_checking_imports: options.type_checking_imports,
-        })
-    }
-
-    #[must_use]
-    fn combine(self, config: Self) -> Self {
-        Self {
-            exclude: self.exclude.or(config.exclude),
-            preview: self.preview.or(config.preview),
-            direction: self.direction.or(config.direction),
-            detect_string_imports: self.detect_string_imports.or(config.detect_string_imports),
-            string_imports_min_dots: self
-                .string_imports_min_dots
-                .or(config.string_imports_min_dots),
-            include_dependencies: self.include_dependencies.or(config.include_dependencies),
-            type_checking_imports: self.type_checking_imports.or(config.type_checking_imports),
         }
     }
 }

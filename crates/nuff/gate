@@ -23,7 +23,7 @@ started=$SECONDS
 cargo fmt --all --check
 cargo clippy --quiet --locked --no-deps -p nuff -p ruff_linter -p ruff_workspace --all-targets -- -D warnings
 log="$(mktemp)"
-if ! cargo test --quiet --locked -p ruff_linter -p ruff_workspace -p ruff >"$log" 2>&1; then
+if ! cargo test --quiet --locked -p ruff_linter -p ruff_workspace -p nuff >"$log" 2>&1; then
   tail -80 "$log" >&2
   exit 1
 fi

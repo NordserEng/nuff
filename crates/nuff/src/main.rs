@@ -2,15 +2,11 @@ use std::io::Write;
 use std::process::ExitCode;
 
 use anyhow::Context;
-use clap::{CommandFactory, FromArgMatches};
+use clap::Parser;
 use colored::Colorize;
 
-use ruff::args::Args;
-use ruff::{ExitStatus, run};
-
-#[cfg(target_os = "windows")]
-#[global_allocator]
-static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+use nuff::args::Args;
+use nuff::{ExitStatus, run};
 
 // The Linux wheels cross-compile through zig, which cannot link jemalloc, so Linux keeps the system
 // allocator.
@@ -19,9 +15,6 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
 fn main() -> ExitCode {
-    #[cfg(windows)]
-    assert!(colored::control::set_virtual_terminal(true).is_ok());
-
     let args = wild::args_os();
     let args = match ruff_command_line::expand_args(args)
         .context("Failed to read CLI arguments from files")
@@ -30,17 +23,7 @@ fn main() -> ExitCode {
         Err(err) => return report_error(&err),
     };
 
-    // `--version` is what a consumer checks its pin against, so it reports nuff's release, not the
-    // upstream ruff it is built on.
-    let matches = Args::command()
-        .name("nuff")
-        .bin_name("nuff")
-        .version(env!("CARGO_PKG_VERSION"))
-        .get_matches_from(args);
-    let args = match Args::from_arg_matches(&matches) {
-        Ok(args) => args,
-        Err(err) => err.exit(),
-    };
+    let args = Args::parse_from(args);
 
     match run(args) {
         Ok(code) => code.into(),

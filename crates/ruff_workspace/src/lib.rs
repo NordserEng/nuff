@@ -5,7 +5,7 @@ pub mod resolver;
 
 mod settings;
 
-pub use settings::{FileResolverSettings, FormatterSettings, Settings};
+pub use settings::{FileResolverSettings, Settings};
 
 #[cfg(test)]
 mod tests {
