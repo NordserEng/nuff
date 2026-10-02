@@ -1,4 +1,4 @@
-#![cfg(any(test, fuzzing, feature = "testing"))]
+#![cfg(any(test, feature = "testing"))]
 //! Helper functions for the tests of rule implementations.
 
 use std::borrow::Cow;

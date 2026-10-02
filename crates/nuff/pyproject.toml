@@ -10,7 +10,7 @@ requires-python = ">=3.7"
 license = "MIT"
 
 [project.urls]
-Repository = "https://github.com/NordserEng/ruff"
+Repository = "https://github.com/NordserEng/nuff"
 
 [tool.maturin]
 bindings = "bin"

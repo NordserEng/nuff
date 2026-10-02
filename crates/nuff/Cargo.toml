@@ -6,7 +6,7 @@ publish = false
 authors = { workspace = true }
 edition = { workspace = true }
 rust-version = { workspace = true }
-repository = "https://github.com/NordserEng/ruff"
+repository = { workspace = true }
 license = { workspace = true }
 
 [[bin]]
