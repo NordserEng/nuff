@@ -1,0 +1,23 @@
+---
+source: crates/nuff_linter/src/rules/nuff/mod.rs
+---
+NUF001 `app.platform.email.send_email` blocks the event loop; await it through `asyncio.to_thread`
+ --> NUF001.py:9:5
+  |
+8 | async def direct(email: str) -> None:
+9 |     send_email(email, "Welcome")  # NUF001
+  |     ^^^^^^^^^^
+
+NUF001 `app.accounts.services.brreg.fetch_company` blocks the event loop; await it through `asyncio.to_thread`
+  --> NUF001.py:13:5
+   |
+12 | async def through_module(org: str) -> None:
+13 |     brreg.fetch_company(org)  # NUF001
+   |     ^^^^^^^^^^^^^^^^^^^
+
+NUF001 `xml.etree.ElementTree.fromstring` blocks the event loop; await it through `asyncio.to_thread`
+  --> NUF001.py:17:5
+   |
+16 | async def standard_library(content: bytes) -> None:
+17 |     ET.fromstring(content)  # NUF001
+   |     ^^^^^^^^^^^^^

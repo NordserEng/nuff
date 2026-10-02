@@ -1,0 +1,8 @@
+---
+source: crates/nuff_linter/src/linter.rs
+---
+F821 Undefined name `undefined`
+ --> undefined_name.ipynb:cell 3:1:7
+  |
+1 | print(undefined)
+  |       ^^^^^^^^^

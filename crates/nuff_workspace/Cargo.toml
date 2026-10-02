@@ -1,0 +1,56 @@
+[package]
+name = "nuff_workspace"
+version = { workspace = true }
+publish = false
+authors = { workspace = true }
+edition = { workspace = true }
+rust-version = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+
+[package.metadata.cargo-shear]
+# Used via macro expansion.
+ignored = ["colored"]
+
+[lib]
+
+[dependencies]
+nuff_options_metadata = { workspace = true }
+colored = { workspace = true }
+nuff_cache = { workspace = true }
+nuff_linter = { workspace = true }
+nuff_macros = { workspace = true }
+nuff_python_ast = { workspace = true }
+
+anyhow = { workspace = true }
+glob = { workspace = true }
+globset = { workspace = true }
+ignore = { workspace = true }
+indexmap = { workspace = true }
+is-macro = { workspace = true }
+itertools = { workspace = true }
+log = { workspace = true }
+matchit = { workspace = true }
+path-absolutize = { workspace = true }
+path-slash = { workspace = true }
+pep440_rs = { workspace = true }
+regex = { workspace = true }
+rustc-hash = { workspace = true }
+serde = { workspace = true }
+shellexpand = { workspace = true }
+strum = { workspace = true }
+toml = { workspace = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+etcetera = { workspace = true }
+
+[dev-dependencies]
+# Enable test rules during development
+nuff_linter = { workspace = true, features = ["clap", "test-rules"] }
+tempfile = { workspace = true }
+
+[features]
+default = []
+
+[lints]
+workspace = true

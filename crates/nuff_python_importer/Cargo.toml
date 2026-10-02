@@ -1,0 +1,32 @@
+[package]
+name = "nuff_python_importer"
+version = { workspace = true }
+publish = false
+authors = { workspace = true }
+edition = { workspace = true }
+rust-version = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+
+[dependencies]
+nuff_diagnostics = { workspace = true }
+nuff_python_ast = { workspace = true }
+nuff_python_codegen = { workspace = true }
+nuff_python_trivia = { workspace = true }
+nuff_source_file = { workspace = true, features = ["serde"] }
+nuff_text_size = { workspace = true }
+
+anyhow = { workspace = true }
+
+[dev-dependencies]
+nuff_python_parser = { workspace = true }
+
+insta = { workspace = true }
+
+[features]
+
+[lints]
+workspace = true
+
+[lib]
+doctest = false

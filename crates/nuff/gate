@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Verifies the staged tree so the commit hook lets it through. The fork runs no CI; this is what keeps
+# Verifies the staged tree so the commit hook lets it through. nuff runs no CI; this is what keeps
 # main releasable.
 #
 #   crates/nuff/gate           check the staged tree
@@ -21,9 +21,9 @@ fi
 
 started=$SECONDS
 cargo fmt --all --check
-cargo clippy --quiet --locked --no-deps -p nuff -p ruff_linter -p ruff_workspace --all-targets -- -D warnings
+cargo clippy --quiet --locked --workspace --all-targets -- -D warnings
 log="$(mktemp)"
-if ! cargo test --quiet --locked -p ruff_linter -p ruff_workspace -p ruff >"$log" 2>&1; then
+if ! cargo test --quiet --locked --workspace >"$log" 2>&1; then
   tail -80 "$log" >&2
   exit 1
 fi

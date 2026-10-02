@@ -1,0 +1,24 @@
+[package]
+name = "nuff_python_literal"
+version = { workspace = true }
+publish = false
+authors = { workspace = true }
+edition = { workspace = true }
+rust-version = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+
+[lib]
+doctest = false
+
+[dependencies]
+nuff_python_ast = { workspace = true }
+
+bitflags = { workspace = true }
+icu_properties = { workspace = true }
+itertools = { workspace = true }
+
+[dev-dependencies]
+
+[lints]
+workspace = true

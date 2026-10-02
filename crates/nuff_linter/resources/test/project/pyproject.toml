@@ -1,0 +1,7 @@
+[tool.nuff]
+src = [".", "python_modules/*"]
+exclude = ["examples/excluded"]
+
+[tool.nuff.lint]
+extend-select = ["I001"]
+extend-ignore = ["F841"]

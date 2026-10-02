@@ -1,0 +1,8 @@
+---
+source: crates/nuff_linter/src/rules/pyflakes/mod.rs
+---
+F821 Undefined name `PythonFinalizationError`. Consider specifying `requires-python = ">= 3.13"` or `tool.nuff.target-version = "py313"` in your `pyproject.toml` file.
+ --> <filename>:1:1
+  |
+1 | PythonFinalizationError
+  | ^^^^^^^^^^^^^^^^^^^^^^^

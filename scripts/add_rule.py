@@ -3,25 +3,6 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = []
-#
-# [tool.ty.rules]
-# truthiness-test-of-none-union = "warn"
-# blanket-ignore-comment = "warn"
-# missing-type-argument = "warn"
-# possibly-unresolved-reference = "warn"
-# unsound-return-statement = "warn"
-# unsound-yield = "warn"
-# unsupported-dynamic-base = "warn"
-# division-by-zero = "warn"
-# dynamic-function-decorator-return = "warn"
-# unsound-assignment = "warn"
-# redundant-condition-strict = "warn"
-# disjoint-cast = "warn"
-# missing-direct-dependency = "warn"
-#
-# [tool.uv]
-# no-build = true
-# exclude-newer = "P7D"
 # ///
 
 """Generate boilerplate for a new rule.
@@ -29,11 +10,11 @@
 Example usage:
 
     python scripts/add_rule.py \
-        --name PreferListBuiltin \
-        --prefix PIE \
-        --code 807 \
-        --linter flake8-pie \
-        --category pedantic
+        --name RouteReturnsDict \
+        --prefix NUF \
+        --code 002 \
+        --linter nuff \
+        --category restriction
 """
 
 from __future__ import annotations
@@ -72,13 +53,13 @@ def main(*, name: str, prefix: str, code: str, linter: str, category: str) -> No
     filestem = f"{prefix}{code}" if linter != "pylint" else snake_case(name)
     with (
         ROOT_DIR
-        / "crates/ruff_linter/resources/test/fixtures"
+        / "crates/nuff_linter/resources/test/fixtures"
         / dir_name(linter)
         / f"{filestem}.py"
     ).open("a"):
         pass
 
-    plugin_module = ROOT_DIR / "crates/ruff_linter/src/rules" / dir_name(linter)
+    plugin_module = ROOT_DIR / "crates/nuff_linter/src/rules" / dir_name(linter)
     rule_name_snake = snake_case(name)
 
     # Add the relevant `#testcase` macro.
@@ -140,7 +121,7 @@ def main(*, name: str, prefix: str, code: str, linter: str, category: str) -> No
     with (rules_dir / f"{rule_name_snake}.rs").open("w") as fp:
         fp.write(
             f"""\
-use ruff_macros::{{ViolationMetadata, derive_message_formats}};
+use nuff_macros::{{ViolationMetadata, derive_message_formats}};
 
 use crate::Violation;
 use crate::checkers::ast::Checker;
@@ -158,7 +139,7 @@ use crate::codes::Category;
 /// ```python
 /// ```
 #[derive(ViolationMetadata)]
-#[violation_metadata(preview_since = "NEXT_RUFF_VERSION", category = Category::{pascal_case(category)})]
+#[violation_metadata(preview_since = "NEXT_NUFF_VERSION", category = Category::{pascal_case(category)})]
 pub(crate) struct {name};
 
 impl Violation for {name} {{
@@ -177,7 +158,7 @@ pub(crate) fn {rule_name_snake}(checker: &mut Checker) {{}}
         )
 
     text = ""
-    with (ROOT_DIR / "crates/ruff_linter/src/codes.rs").open("r") as fp:
+    with (ROOT_DIR / "crates/nuff_linter/src/codes.rs").open("r") as fp:
         while (line := next(fp)).strip() != f"// {linter}":
             text += line
         text += line
@@ -196,7 +177,7 @@ pub(crate) fn {rule_name_snake}(checker: &mut Checker) {{}}
         text += "".join(lines)
         text += "\n"
         text += fp.read()
-    with (ROOT_DIR / "crates/ruff_linter/src/codes.rs").open("w") as fp:
+    with (ROOT_DIR / "crates/nuff_linter/src/codes.rs").open("w") as fp:
         fp.write(text)
 
     _rustfmt(rules_mod)

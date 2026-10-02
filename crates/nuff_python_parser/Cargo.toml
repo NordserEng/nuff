@@ -1,0 +1,37 @@
+[package]
+name = "nuff_python_parser"
+version = { workspace = true }
+publish = false
+authors = { workspace = true }
+edition = { workspace = true }
+rust-version = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+
+[lib]
+
+[dependencies]
+nuff_python_ast = { workspace = true }
+nuff_python_trivia = { workspace = true }
+nuff_text_size = { workspace = true }
+
+bitflags = { workspace = true }
+bstr = { workspace = true }
+drop_bomb = { workspace = true }
+hashbrown = { workspace = true }
+memchr = { workspace = true }
+rustc-hash = { workspace = true }
+static_assertions = { workspace = true }
+stacker = { workspace = true }
+thin-vec = { workspace = true }
+unicode-ident = { workspace = true }
+unicode-normalization = { workspace = true }
+unicode_names2 = { workspace = true }
+
+[dev-dependencies]
+nuff_python_ast = { workspace = true, features = ["serde"] }
+
+insta = { workspace = true }
+
+[lints]
+workspace = true

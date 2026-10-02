@@ -1,0 +1,20 @@
+---
+source: crates/nuff_linter/src/diagnostic/render/rdjson.rs
+expression: env.render(&diag)
+---
+{
+  "diagnostics": [
+    {
+      "code": {
+        "url": "https://example.com/rules/test-diagnostic",
+        "value": "test-diagnostic"
+      },
+      "message": "main diagnostic message"
+    }
+  ],
+  "severity": "WARNING",
+  "source": {
+    "name": "nuff",
+    "url": "https://github.com/NordserEng/nuff"
+  }
+}

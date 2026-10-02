@@ -1,0 +1,48 @@
+[package]
+name = "nuff_python_ast"
+version = { workspace = true }
+publish = false
+authors = { workspace = true }
+edition = { workspace = true }
+rust-version = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+
+[package.metadata.cargo-shear]
+# Used via `CacheKey` macro expansion.
+ignored = ["nuff_cache"]
+
+[lib]
+
+[dependencies]
+nuff_cache = { workspace = true, optional = true }
+nuff_macros = { workspace = true, optional = true }
+nuff_python_trivia = { workspace = true }
+nuff_source_file = { workspace = true }
+nuff_text_size = { workspace = true }
+
+aho-corasick = { workspace = true }
+arrayvec = { workspace = true }
+bitflags = { workspace = true }
+char_str = { workspace = true }
+compact_str = { workspace = true }
+is-macro = { workspace = true }
+memchr = { workspace = true }
+rustc-hash = { workspace = true }
+serde = { workspace = true, optional = true }
+thiserror = { workspace = true }
+thin-vec = { workspace = true }
+
+[features]
+cache = ["dep:nuff_cache", "dep:nuff_macros"]
+serde = [
+    "dep:serde",
+    "nuff_text_size/serde",
+    "dep:nuff_cache",
+    "char_str/serde",
+    "compact_str/serde",
+    "thin-vec/serde",
+]
+
+[lints]
+workspace = true

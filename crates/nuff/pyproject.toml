@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "nuff"
 version = "0.2.0"
-description = "Nordser's ruff: upstream ruff plus Nordser's house rules."
+description = "Nordser's Python linter."
 requires-python = ">=3.7"
 license = "MIT"
 
