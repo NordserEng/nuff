@@ -12,3 +12,9 @@ without waiting on upstream. It reads the same `[tool.ruff]` configuration.
 4. In a consumer, point each wheel URL at the new release and run `uv lock`, which records the new hashes.
 
 A published release is never rebuilt: consumers verify the bytes, so a fix is the next version.
+
+## Trying a rule on a real project
+
+Build with `cargo build --release -p nuff` and run `target/release/nuff check --no-cache` inside the
+project. The lint cache keys on the version, so two local builds of one version share it and the
+second reports the first one's results.
