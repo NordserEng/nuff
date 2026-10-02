@@ -1,6 +1,6 @@
 [package]
 name = "nuff"
-version = "0.2.0"
+version = { workspace = true }
 description = "Nordser's Python linter"
 publish = false
 authors = { workspace = true }
@@ -17,20 +17,20 @@ path = "src/main.rs"
 doctest = false
 
 [dependencies]
-ruff_cache = { workspace = true }
-ruff_command_line = { workspace = true }
-ruff_db = { workspace = true, default-features = false, features = ["os"] }
-ruff_diagnostics = { workspace = true }
-ruff_linter = { workspace = true, features = ["clap"] }
-ruff_macros = { workspace = true }
-ruff_notebook = { workspace = true }
-ruff_options_metadata = { workspace = true, features = ["serde"] }
-ruff_python_ast = { workspace = true }
-ruff_python_parser = { workspace = true }
-ruff_ranged_value = { workspace = true }
-ruff_source_file = { workspace = true }
-ruff_text_size = { workspace = true }
-ruff_workspace = { workspace = true }
+nuff_cache = { workspace = true }
+nuff_command_line = { workspace = true }
+nuff_db = { workspace = true, default-features = false, features = ["os"] }
+nuff_diagnostics = { workspace = true }
+nuff_linter = { workspace = true, features = ["clap"] }
+nuff_macros = { workspace = true }
+nuff_notebook = { workspace = true }
+nuff_options_metadata = { workspace = true, features = ["serde"] }
+nuff_python_ast = { workspace = true }
+nuff_python_parser = { workspace = true }
+nuff_ranged_value = { workspace = true }
+nuff_source_file = { workspace = true }
+nuff_text_size = { workspace = true }
+nuff_workspace = { workspace = true }
 
 anyhow = { workspace = true }
 rkyv = { workspace = true }

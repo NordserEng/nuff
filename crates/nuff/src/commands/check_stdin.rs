@@ -1,11 +1,11 @@
 use std::path::Path;
 
 use anyhow::Result;
-use ruff_db::diagnostic::Diagnostic;
-use ruff_linter::package::PackageRoot;
-use ruff_linter::packaging;
-use ruff_linter::settings::flags;
-use ruff_workspace::resolver::{PyprojectConfig, Resolver, match_exclusion, project_file_at_path};
+use nuff_db::diagnostic::Diagnostic;
+use nuff_linter::package::PackageRoot;
+use nuff_linter::packaging;
+use nuff_linter::settings::flags;
+use nuff_workspace::resolver::{PyprojectConfig, Resolver, match_exclusion, project_file_at_path};
 
 use crate::args::ConfigArguments;
 use crate::diagnostics::{Diagnostics, lint_stdin};
@@ -55,6 +55,6 @@ pub(crate) fn check_stdin(
     )?;
     diagnostics
         .inner
-        .sort_unstable_by(Diagnostic::ruff_start_ordering);
+        .sort_unstable_by(Diagnostic::nuff_start_ordering);
     Ok(diagnostics)
 }

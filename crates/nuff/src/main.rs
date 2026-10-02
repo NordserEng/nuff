@@ -16,7 +16,7 @@ static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
 fn main() -> ExitCode {
     let args = wild::args_os();
-    let args = match ruff_command_line::expand_args(args)
+    let args = match nuff_command_line::expand_args(args)
         .context("Failed to read CLI arguments from files")
     {
         Ok(args) => args,

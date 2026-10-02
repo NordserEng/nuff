@@ -16,12 +16,12 @@ use rayon::iter::{IntoParallelIterator, ParallelBridge};
 use rustc_hash::FxHashMap;
 use tempfile::NamedTempFile;
 
-use ruff_cache::{CacheKey, CacheKeyHasher};
-use ruff_linter::package::PackageRoot;
-use ruff_linter::{VERSION, warn_user};
-use ruff_macros::CacheKey;
-use ruff_workspace::Settings;
-use ruff_workspace::resolver::Resolver;
+use nuff_cache::{CacheKey, CacheKeyHasher};
+use nuff_linter::package::PackageRoot;
+use nuff_linter::{VERSION, warn_user};
+use nuff_macros::CacheKey;
+use nuff_workspace::Settings;
+use nuff_workspace::resolver::Resolver;
 
 /// [`Path`] that is relative to the package root in [`PackageCache`].
 pub(crate) type RelativePath = Path;
@@ -162,8 +162,8 @@ impl Cache {
         }
 
         // Write the cache to a temporary file first and then rename it for an "atomic" write.
-        // Protects against data loss if the process is killed during the write and races between different ruff
-        // processes, resulting in a corrupted cache file. https://github.com/astral-sh/ruff/issues/8147#issuecomment-1943345964
+        // Protects against data loss if the process is killed during the write and races between different nuff
+        // processes, resulting in a corrupted cache file.
         let mut temp_file = tempfile_in(self.path.parent().expect("Write path must have a parent"))
             .context("Failed to create temporary file")?;
 
@@ -177,7 +177,7 @@ impl Cache {
 
         if let Err(err) = temp_file.persist(&self.path) {
             // On Windows, writing to the cache file can fail if the file is still open (e.g., if
-            // the user is running Ruff from multiple processes over the same directory).
+            // the user is running nuff from multiple processes over the same directory).
             if cfg!(windows) && err.error.kind() == io::ErrorKind::PermissionDenied {
                 warn_user!(
                     "Failed to write cache file `{}`: {}",
@@ -374,7 +374,7 @@ fn init(path: &Path) -> Result<()> {
         .create_new(true)
         .open(path.join(".gitignore"))
     {
-        Ok(mut file) => file.write_all(b"# Automatically created by ruff.\n*\n")?,
+        Ok(mut file) => file.write_all(b"# Automatically created by nuff.\n*\n")?,
         Err(err) if err.kind() == io::ErrorKind::AlreadyExists => (),
         Err(err) => return Err(err.into()),
     }
@@ -498,21 +498,21 @@ mod tests {
 
     use test_case::test_case;
 
-    use ruff_cache::CACHE_DIR_NAME;
-    use ruff_linter::package::PackageRoot;
-    use ruff_linter::registry::Rule;
-    use ruff_linter::settings::LinterSettings;
-    use ruff_linter::settings::flags;
-    use ruff_linter::settings::types::UnsafeFixes;
+    use nuff_cache::CACHE_DIR_NAME;
+    use nuff_linter::package::PackageRoot;
+    use nuff_linter::registry::Rule;
+    use nuff_linter::settings::LinterSettings;
+    use nuff_linter::settings::flags;
+    use nuff_linter::settings::types::UnsafeFixes;
 
-    use ruff_workspace::Settings;
+    use nuff_workspace::Settings;
 
     use crate::cache::{self, ChangeData, FileCache, FileCacheData, FileCacheKey};
     use crate::cache::{Cache, RelativePathBuf};
     use crate::diagnostics::{Diagnostics, lint_path};
 
-    #[test_case("../ruff_linter/resources/test/fixtures", "ruff_tests/cache_same_results_ruff_linter"; "ruff_linter_fixtures")]
-    #[test_case("../ruff_notebook/resources/test/fixtures", "ruff_tests/cache_same_results_ruff_notebook"; "ruff_notebook_fixtures")]
+    #[test_case("../nuff_linter/resources/test/fixtures", "nuff_tests/cache_same_results_nuff_linter"; "nuff_linter_fixtures")]
+    #[test_case("../nuff_notebook/resources/test/fixtures", "nuff_tests/cache_same_results_nuff_notebook"; "nuff_notebook_fixtures")]
     fn same_results(package_root: &str, cache_dir_path: &str) {
         let mut cache_dir = temp_dir();
         cache_dir.push(cache_dir_path);
@@ -921,7 +921,7 @@ mod tests {
         fn new(test_case: &str) -> Self {
             // Build a new cache directory and clear it
             let mut test_dir = temp_dir();
-            test_dir.push("ruff_tests/cache");
+            test_dir.push("nuff_tests/cache");
             test_dir.push(test_case);
 
             let _ = fs::remove_dir_all(&test_dir);

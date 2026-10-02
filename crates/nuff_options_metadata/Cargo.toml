@@ -1,0 +1,18 @@
+[package]
+name = "nuff_options_metadata"
+version = { workspace = true }
+publish = false
+authors = { workspace = true }
+edition = { workspace = true }
+rust-version = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+
+[dependencies]
+serde = { workspace = true, optional = true }
+
+[lints]
+workspace = true
+
+[lib]
+test = false

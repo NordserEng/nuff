@@ -10,11 +10,11 @@ use anyhow::Result;
 use log::error;
 
 use args::GlobalConfigArgs;
-use ruff_db::diagnostic::{Diagnostic, Severity};
-use ruff_linter::logging::set_up_logging;
-use ruff_linter::settings::flags::FixMode;
-use ruff_linter::{fs, warn_user_once};
-use ruff_workspace::Settings;
+use nuff_db::diagnostic::{Diagnostic, Severity};
+use nuff_linter::logging::set_up_logging;
+use nuff_linter::settings::flags::FixMode;
+use nuff_linter::{fs, warn_user_once};
+use nuff_workspace::Settings;
 
 use crate::args::{Args, CheckCommand, Command, TerminalColor};
 use crate::printer::{Flags as PrinterFlags, Printer};
@@ -162,7 +162,7 @@ pub fn check(args: CheckCommand, global_options: GlobalConfigArgs) -> Result<Exi
     if cache {
         // `--no-cache` doesn't respect code changes, and so is often confusing during
         // development.
-        ruff_linter::warn_user!("Detected debug build without --no-cache.");
+        nuff_linter::warn_user!("Detected debug build without --no-cache.");
     }
 
     let printer = Printer::new(
@@ -173,9 +173,6 @@ pub fn check(args: CheckCommand, global_options: GlobalConfigArgs) -> Result<Exi
         printer_flags,
     );
 
-    // the settings should already be combined with the CLI overrides at this point
-    // TODO: this should reference the global preview mode once https://github.com/astral-sh/ruff/issues/8232
-    //   is resolved.
     let preview = pyproject_config.settings.linter.preview;
     let prefer_rule_codes = pyproject_config.settings.output_prefer_rule_codes;
 

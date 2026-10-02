@@ -1,0 +1,18 @@
+[package]
+name = "nuff_python_stdlib"
+version = { workspace = true }
+publish = false
+authors = { workspace = true }
+edition = { workspace = true }
+rust-version = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+
+[lib]
+
+[dependencies]
+bitflags = { workspace = true }
+unicode-ident = { workspace = true }
+
+[lints]
+workspace = true

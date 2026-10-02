@@ -18,10 +18,10 @@ for tool in rustup uvx docker gh; do
   command -v "$tool" >/dev/null || { echo "Install $tool first." >&2; exit 1; }
 done
 
-version=$(sed -n 's/^version = "\(.*\)"/\1/p' crates/nuff/Cargo.toml | head -1)
+version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
 wheel_version=$(sed -n 's/^version = "\(.*\)"/\1/p' crates/nuff/pyproject.toml | head -1)
 if [[ "$version" != "$wheel_version" ]]; then
-  echo "crates/nuff/Cargo.toml says $version but crates/nuff/pyproject.toml says $wheel_version." >&2
+  echo "Cargo.toml says $version but crates/nuff/pyproject.toml says $wheel_version." >&2
   exit 1
 fi
 tag="nuff-$version"

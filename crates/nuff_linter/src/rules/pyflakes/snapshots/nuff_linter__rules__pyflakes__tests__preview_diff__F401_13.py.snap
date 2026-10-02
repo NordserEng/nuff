@@ -1,0 +1,10 @@
+---
+source: crates/nuff_linter/src/rules/pyflakes/mod.rs
+---
+--- Linter settings ---
+-    preview: Disabled,
++    preview: Enabled,
+
+--- Summary ---
+Removed: 0
+Added: 0

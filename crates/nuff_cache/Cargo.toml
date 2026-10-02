@@ -1,0 +1,27 @@
+[package]
+name = "nuff_cache"
+version = { workspace = true }
+publish = false
+authors = { workspace = true }
+edition = { workspace = true }
+rust-version = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+
+[dependencies]
+char_str = { workspace = true }
+filetime = { workspace = true }
+glob = { workspace = true }
+globset = { workspace = true }
+itertools = { workspace = true }
+regex = { workspace = true }
+seahash = { workspace = true }
+
+[dev-dependencies]
+nuff_macros = { workspace = true }
+
+[lints]
+workspace = true
+
+[lib]
+test = false

@@ -1,0 +1,85 @@
+[package]
+name = "nuff_linter"
+version = { workspace = true }
+publish = false
+authors = { workspace = true }
+edition = { workspace = true }
+rust-version = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+
+[lib]
+
+[dependencies]
+nuff_cache = { workspace = true }
+nuff_db = { workspace = true, features = ["junit", "serde"] }
+nuff_diagnostics = { workspace = true, features = ["serde"] }
+nuff_macros = { workspace = true }
+nuff_notebook = { workspace = true }
+nuff_python_ast = { workspace = true, features = ["serde", "cache"] }
+nuff_python_codegen = { workspace = true }
+nuff_python_edits = { workspace = true }
+nuff_python_importer = { workspace = true }
+nuff_python_index = { workspace = true }
+nuff_python_literal = { workspace = true }
+nuff_python_parser = { workspace = true }
+nuff_python_semantic = { workspace = true }
+nuff_python_stdlib = { workspace = true }
+nuff_python_trivia = { workspace = true }
+nuff_ranged_value = { workspace = true }
+nuff_source_file = { workspace = true, features = ["serde"] }
+nuff_text_size = { workspace = true }
+
+aho-corasick = { workspace = true }
+anyhow = { workspace = true }
+bitflags = { workspace = true }
+clap = { workspace = true, features = ["derive", "string"], optional = true }
+colored = { workspace = true }
+compact_str = { workspace = true }
+fern = { workspace = true }
+glob = { workspace = true }
+globset = { workspace = true }
+imperative = { workspace = true }
+is-macro = { workspace = true }
+itertools = { workspace = true }
+jiff = { workspace = true }
+libcst = { workspace = true }
+log = { workspace = true }
+memchr = { workspace = true }
+natord = { workspace = true }
+path-absolutize = { workspace = true, features = ["fixed_workdir"] }
+pep440_rs = { workspace = true }
+pyproject-toml = { workspace = true }
+regex = { workspace = true }
+rustc-hash = { workspace = true }
+schemars = { workspace = true, optional = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+similar = { workspace = true }
+smallvec = { workspace = true }
+strum = { workspace = true }
+strum_macros = { workspace = true }
+thiserror = { workspace = true }
+toml = { workspace = true }
+typed-arena = { workspace = true }
+unicode-normalization = { workspace = true }
+unicode-width = { workspace = true }
+unicode_names2 = { workspace = true }
+url = { workspace = true }
+
+[dev-dependencies]
+# Disable colored output in tests
+colored = { workspace = true, features = ["no-color"] }
+insta = { workspace = true, features = ["filters", "json", "redactions"] }
+tempfile = { workspace = true }
+test-case = { workspace = true }
+
+[features]
+default = []
+schemars = ["dep:schemars", "nuff_python_ast/schemars"]
+# Enables rules for internal integration tests
+test-rules = []
+testing = []
+
+[lints]
+workspace = true

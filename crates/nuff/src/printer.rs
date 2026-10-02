@@ -6,18 +6,18 @@ use anyhow::Result;
 use bitflags::bitflags;
 use colored::Colorize;
 use itertools::{Itertools, iterate};
-use ruff_linter::linter::FixTable;
+use nuff_linter::linter::FixTable;
 use serde::Serialize;
 
-use ruff_db::diagnostic::{
+use nuff_db::diagnostic::{
     Diagnostic, DiagnosticStylesheet, DisplayDiagnosticConfig, SecondaryCode, fmt_with_hyperlink,
 };
-use ruff_linter::fs::relativize_path;
-use ruff_linter::logging::LogLevel;
-use ruff_linter::message::{EmitterContext, render_diagnostics};
-use ruff_linter::preview::is_human_readable_names_enabled;
-use ruff_linter::settings::flags::{self};
-use ruff_linter::settings::types::{OutputFormat, PreviewMode, UnsafeFixes};
+use nuff_linter::fs::relativize_path;
+use nuff_linter::logging::LogLevel;
+use nuff_linter::message::{EmitterContext, render_diagnostics};
+use nuff_linter::preview::is_human_readable_names_enabled;
+use nuff_linter::settings::flags::{self};
+use nuff_linter::settings::types::{OutputFormat, PreviewMode, UnsafeFixes};
 
 use crate::diagnostics::{Diagnostics, FixMap};
 
@@ -235,7 +235,7 @@ impl Printer {
         let context = EmitterContext::new(&diagnostics.notebook_indexes);
         let fixables = FixableStatistics::try_from(diagnostics, self.unsafe_fixes);
 
-        let config = DisplayDiagnosticConfig::new("ruff")
+        let config = DisplayDiagnosticConfig::new("nuff")
             .preview(preview.is_enabled())
             .prefer_rule_codes(prefer_rule_codes)
             .hide_severity(true)
@@ -300,7 +300,6 @@ impl Printer {
                     name: message.name(),
                     count,
                     // Backward compatibility: `fixable` is true only when all violations are fixable.
-                    // See: https://github.com/astral-sh/ruff/pull/21513
                     all_fixable: fixable_count == count,
                     fixable_count,
                 },
@@ -460,7 +459,7 @@ fn print_fix_summary(
     Ok(())
 }
 
-/// Statistics for [applicable][ruff_diagnostics::Applicability] fixes.
+/// Statistics for [applicable][nuff_diagnostics::Applicability] fixes.
 #[derive(Debug)]
 struct FixableStatistics {
     applicable: u32,

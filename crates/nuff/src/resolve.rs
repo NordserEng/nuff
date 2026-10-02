@@ -4,14 +4,14 @@ use anyhow::{Result, bail};
 use log::debug;
 use path_absolutize::path_dedot;
 
-use ruff_workspace::configuration::Configuration;
-use ruff_workspace::pyproject::{self, find_fallback_target_version};
-use ruff_workspace::resolver::{
+use nuff_workspace::configuration::Configuration;
+use nuff_workspace::pyproject::{self, find_fallback_target_version};
+use nuff_workspace::resolver::{
     ConfigurationOrigin, ConfigurationTransformer, PyprojectConfig, PyprojectDiscoveryStrategy,
     resolve_root_settings,
 };
 
-use ruff_python_ast as ast;
+use nuff_python_ast as ast;
 
 use crate::args::ConfigArguments;
 
@@ -117,15 +117,15 @@ pub fn resolve(
         ));
     }
 
-    // Fallback: load Ruff's default settings, and resolve all paths relative to the
+    // Fallback: load nuff's default settings, and resolve all paths relative to the
     // current working directory. (With `Strategy::Hierarchical`, we'll end up the
     // "closest" `pyproject.toml` file for every Python file later on, so these act
     // as the "default" settings.)
-    debug!("Using Ruff default settings");
+    debug!("Using nuff default settings");
     let mut config = config_arguments.transform(Configuration::default());
     if config.target_version.is_none() {
         // If we have arrived here we know that there was no `pyproject.toml`
-        // containing a `[tool.ruff]` section found in an ancestral directory.
+        // containing a `[tool.nuff]` section found in an ancestral directory.
         // (This is an implicit requirement in the function
         // `pyproject::find_settings_toml`.)
         // However, there may be a `pyproject.toml` with a `requires-python`

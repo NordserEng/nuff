@@ -1,0 +1,46 @@
+[package]
+name = "nuff_python_parser"
+version = { workspace = true }
+publish = false
+authors = { workspace = true }
+edition = { workspace = true }
+rust-version = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+
+[lib]
+
+[dependencies]
+nuff_python_ast = { workspace = true, features = ["get-size"] }
+nuff_python_trivia = { workspace = true }
+nuff_text_size = { workspace = true, features = ["get-size"] }
+
+bitflags = { workspace = true }
+bstr = { workspace = true }
+drop_bomb = { workspace = true }
+get-size2 = { workspace = true }
+hashbrown = { workspace = true }
+memchr = { workspace = true }
+rustc-hash = { workspace = true }
+static_assertions = { workspace = true }
+stacker = { workspace = true }
+thin-vec = { workspace = true }
+unicode-ident = { workspace = true }
+unicode-normalization = { workspace = true }
+unicode_names2 = { workspace = true }
+
+[dev-dependencies]
+nuff_annotate_snippets = { workspace = true }
+nuff_python_ast = { workspace = true, features = ["serde"] }
+nuff_source_file = { workspace = true }
+
+anyhow = { workspace = true }
+datatest-stable = { workspace = true }
+insta = { workspace = true }
+itertools = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+walkdir = { workspace = true }
+
+[lints]
+workspace = true

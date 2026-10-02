@@ -7,22 +7,22 @@ use anyhow::Result;
 use colored::Colorize;
 use ignore::Error;
 use log::{debug, warn};
+use nuff_linter::message::create_panic_diagnostic;
+use nuff_python_ast::{SourceType, TomlSourceType};
 #[cfg(not(target_family = "wasm"))]
 use rayon::prelude::*;
-use ruff_linter::message::create_panic_diagnostic;
-use ruff_python_ast::{SourceType, TomlSourceType};
 use rustc_hash::FxHashMap;
 
-use ruff_db::diagnostic::Diagnostic;
-use ruff_db::panic::catch_unwind;
-use ruff_linter::package::PackageRoot;
-use ruff_linter::registry::Rule;
-use ruff_linter::settings::types::UnsafeFixes;
-use ruff_linter::settings::{LinterSettings, flags};
-use ruff_linter::{IOError, Violation, fs, warn_user_once};
-use ruff_source_file::SourceFileBuilder;
-use ruff_text_size::TextRange;
-use ruff_workspace::resolver::{
+use nuff_db::diagnostic::Diagnostic;
+use nuff_db::panic::catch_unwind;
+use nuff_linter::package::PackageRoot;
+use nuff_linter::registry::Rule;
+use nuff_linter::settings::types::UnsafeFixes;
+use nuff_linter::settings::{LinterSettings, flags};
+use nuff_linter::{IOError, Violation, fs, warn_user_once};
+use nuff_source_file::SourceFileBuilder;
+use nuff_text_size::TextRange;
+use nuff_workspace::resolver::{
     PyprojectConfig, ResolvedFile, match_exclusion, project_files_in_path,
 };
 
@@ -51,7 +51,7 @@ pub(crate) fn check(
             matches!(
                 SourceType::from(path),
                 SourceType::Python(_)
-                    | SourceType::Toml(TomlSourceType::Pyproject | TomlSourceType::Ruff)
+                    | SourceType::Toml(TomlSourceType::Pyproject | TomlSourceType::Nuff)
             )
         } else {
             true
@@ -179,7 +179,7 @@ pub(crate) fn check(
 
     all_diagnostics
         .inner
-        .sort_by(Diagnostic::ruff_start_ordering);
+        .sort_by(Diagnostic::nuff_start_ordering);
 
     // Store the caches.
     caches.persist()?;
@@ -224,13 +224,13 @@ mod test {
     use rustc_hash::FxHashMap;
     use tempfile::TempDir;
 
-    use ruff_db::diagnostic::{DiagnosticFormat, DisplayDiagnosticConfig, DisplayDiagnostics};
-    use ruff_linter::message::EmitterContext;
-    use ruff_linter::registry::Rule;
-    use ruff_linter::settings::types::UnsafeFixes;
-    use ruff_linter::settings::{LinterSettings, flags};
-    use ruff_workspace::Settings;
-    use ruff_workspace::resolver::{PyprojectConfig, PyprojectDiscoveryStrategy};
+    use nuff_db::diagnostic::{DiagnosticFormat, DisplayDiagnosticConfig, DisplayDiagnostics};
+    use nuff_linter::message::EmitterContext;
+    use nuff_linter::registry::Rule;
+    use nuff_linter::settings::types::UnsafeFixes;
+    use nuff_linter::settings::{LinterSettings, flags};
+    use nuff_workspace::Settings;
+    use nuff_workspace::resolver::{PyprojectConfig, PyprojectDiscoveryStrategy};
 
     use crate::args::ConfigArguments;
 
@@ -276,7 +276,7 @@ mod test {
         )
         .unwrap();
 
-        let config = DisplayDiagnosticConfig::new("ruff")
+        let config = DisplayDiagnosticConfig::new("nuff")
             .format(DiagnosticFormat::Concise)
             .hide_severity(true);
         let messages = DisplayDiagnostics::new(

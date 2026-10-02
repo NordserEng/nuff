@@ -1,0 +1,27 @@
+[package]
+name = "nuff_source_file"
+version = { workspace = true }
+publish = false
+authors = { workspace = true }
+edition = { workspace = true }
+rust-version = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+
+[lib]
+
+[dependencies]
+nuff_text_size = { workspace = true }
+
+get-size2 = { workspace = true, optional = true }
+memchr = { workspace = true }
+serde = { workspace = true, optional = true }
+
+[dev-dependencies]
+
+[features]
+get-size = ["dep:get-size2", "nuff_text_size/get-size"]
+serde = ["dep:serde", "nuff_text_size/serde"]
+
+[lints]
+workspace = true

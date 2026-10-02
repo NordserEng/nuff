@@ -1,0 +1,40 @@
+[package]
+name = "nuff_python_semantic"
+version = { workspace = true }
+publish = false
+authors = { workspace = true }
+edition = { workspace = true }
+rust-version = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+
+[package.metadata.cargo-shear]
+# Used via `CacheKey` macro expansion.
+ignored = ["nuff_cache"]
+
+[dependencies]
+nuff_cache = { workspace = true }
+nuff_index = { workspace = true }
+nuff_macros = { workspace = true }
+nuff_python_ast = { workspace = true }
+nuff_python_parser = { workspace = true }
+nuff_python_stdlib = { workspace = true }
+nuff_text_size = { workspace = true }
+
+bitflags = { workspace = true }
+is-macro = { workspace = true }
+rustc-hash = { workspace = true }
+schemars = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+smallvec = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true, features = ["filters", "json", "redactions"] }
+nuff_python_parser = { workspace = true }
+test-case = { workspace = true }
+
+[lints]
+workspace = true
+
+[lib]
+doctest = false

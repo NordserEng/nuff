@@ -1,0 +1,531 @@
+//! Utilities for locating (and extracting configuration from) a pyproject.toml.
+
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
+use anyhow::{Context, Result};
+use log::debug;
+use nuff_db::system::SystemPathBuf;
+use nuff_ranged_value::{ValueSource, ValueSourceGuard};
+use pep440_rs::{Operator, Version, VersionSpecifiers};
+use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
+use strum::IntoEnumIterator;
+
+use nuff_linter::settings::types::{PythonVersion, RequiredVersion};
+
+use crate::options::{Options, validate_required_version};
+
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+struct Tools {
+    nuff: Option<Options>,
+}
+
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
+struct Project {
+    #[serde(alias = "requires-python", alias = "requires_python")]
+    requires_python: Option<VersionSpecifiers>,
+}
+
+#[derive(Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct Pyproject {
+    tool: Option<Tools>,
+    project: Option<Project>,
+}
+
+fn parse_toml<T: DeserializeOwned>(path: &Path, table_path: &[&str]) -> Result<T> {
+    let _guard = ValueSourceGuard::new(
+        ValueSource::File(Arc::new(SystemPathBuf::from_path_buf_lossy(
+            path.to_path_buf(),
+        ))),
+        true,
+    );
+
+    let contents = std::fs::read_to_string(path)
+        .with_context(|| format!("Failed to read {}", path.display()))?;
+
+    // Parse the TOML document once into a spanned representation so we can:
+    // - Inspect `required-version` without triggering strict deserialization errors.
+    // - Deserialize with precise spans (line/column and excerpt) on errors.
+    let root = toml::de::DeTable::parse(&contents)
+        .with_context(|| format!("Failed to parse {}", path.display()))?;
+
+    check_required_version(root.get_ref(), table_path)?;
+
+    let deserializer = toml::de::Deserializer::from(root);
+    T::deserialize(deserializer)
+        .map_err(|mut err| {
+            // `Deserializer::from` doesn't have access to the original input, but we do.
+            // Attach it so TOML errors include line/column and a source excerpt.
+            err.set_input(Some(&contents));
+            err
+        })
+        .with_context(|| format!("Failed to parse {}", path.display()))
+}
+
+/// Parse a `nuff.toml` file.
+fn parse_nuff_toml(path: &Path) -> Result<Options> {
+    parse_toml(path, &[])
+}
+
+/// Parse a `pyproject.toml` file.
+fn parse_pyproject_toml(path: &Path) -> Result<Pyproject> {
+    parse_toml(path, &["tool", "nuff"])
+}
+
+/// Return `true` if a `pyproject.toml` contains a `[tool.nuff]` section.
+fn nuff_enabled<P: AsRef<Path>>(path: P) -> Result<bool> {
+    let pyproject = parse_pyproject_toml(path.as_ref())?;
+    Ok(pyproject.tool.and_then(|tool| tool.nuff).is_some())
+}
+
+/// Return the path to the `pyproject.toml` or `nuff.toml` file in a given
+/// directory.
+pub fn settings_toml<P: AsRef<Path>>(path: P) -> Result<Option<PathBuf>> {
+    let path = path.as_ref();
+    // Check for `.nuff.toml`.
+    let nuff_toml = path.join(".nuff.toml");
+    if nuff_toml.is_file() {
+        return Ok(Some(nuff_toml));
+    }
+
+    // Check for `nuff.toml`.
+    let nuff_toml = path.join("nuff.toml");
+    if nuff_toml.is_file() {
+        return Ok(Some(nuff_toml));
+    }
+
+    // Check for `pyproject.toml`.
+    let pyproject_toml = path.join("pyproject.toml");
+    if pyproject_toml.is_file() && nuff_enabled(&pyproject_toml)? {
+        return Ok(Some(pyproject_toml));
+    }
+
+    Ok(None)
+}
+
+/// Find the path to the `pyproject.toml` or `nuff.toml` file, if such a file
+/// exists.
+pub fn find_settings_toml<P: AsRef<Path>>(path: P) -> Result<Option<PathBuf>> {
+    for directory in path.as_ref().ancestors() {
+        if let Some(pyproject) = settings_toml(directory)? {
+            return Ok(Some(pyproject));
+        }
+    }
+    Ok(None)
+}
+
+fn check_required_version(value: &toml::de::DeTable, table_path: &[&str]) -> Result<()> {
+    let mut current = value;
+    for key in table_path {
+        let Some(next) = current.get(*key) else {
+            return Ok(());
+        };
+        let toml::de::DeValue::Table(next) = next.get_ref() else {
+            return Ok(());
+        };
+        current = next;
+    }
+
+    let required_version = current
+        .get("required-version")
+        .and_then(|value| value.get_ref().as_str());
+
+    let Some(required_version) = required_version else {
+        return Ok(());
+    };
+
+    // If it doesn't parse, we just fall through to normal parsing; it will give a nicer error message.
+    if let Ok(required_version) = required_version.parse::<RequiredVersion>() {
+        validate_required_version(&required_version)?;
+    }
+    Ok(())
+}
+
+/// Derive target version from `required-version` in `pyproject.toml`, if
+/// such a file exists in an ancestor directory.
+pub fn find_fallback_target_version<P: AsRef<Path>>(path: P) -> Option<PythonVersion> {
+    for directory in path.as_ref().ancestors() {
+        if let Some(fallback) = get_fallback_target_version(directory) {
+            return Some(fallback);
+        }
+    }
+    None
+}
+
+/// Find the path to the user-specific `pyproject.toml` or `nuff.toml`, if it
+/// exists.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn find_user_settings_toml() -> Option<PathBuf> {
+    use etcetera::BaseStrategy;
+
+    let strategy = etcetera::base_strategy::choose_base_strategy().ok()?;
+    let config_dir = strategy.config_dir().join("nuff");
+
+    // Search for a user-specific `.nuff.toml`, then a `nuff.toml`, then a `pyproject.toml`.
+    for filename in [".nuff.toml", "nuff.toml", "pyproject.toml"] {
+        let path = config_dir.join(filename);
+        if path.is_file() {
+            return Some(path);
+        }
+    }
+
+    None
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn find_user_settings_toml() -> Option<PathBuf> {
+    None
+}
+
+/// Load `Options` from a `pyproject.toml` or `nuff.toml` file.
+pub(super) fn load_options<P: AsRef<Path>>(path: P) -> Result<Options> {
+    let path = path.as_ref();
+    if path.ends_with("pyproject.toml") {
+        let pyproject = parse_pyproject_toml(path)?;
+        let mut nuff = pyproject
+            .tool
+            .and_then(|tool| tool.nuff)
+            .unwrap_or_default();
+        if nuff.target_version.is_none() {
+            if let Some(project) = pyproject.project {
+                if let Some(requires_python) = project.requires_python {
+                    nuff.target_version = get_minimum_supported_version(&requires_python);
+                }
+            }
+        }
+        Ok(nuff)
+    } else {
+        let nuff = parse_nuff_toml(path);
+        if let Ok(nuff) = nuff {
+            if nuff.target_version.is_none() {
+                debug!("No `target-version` found in `{}`", path.display());
+            }
+            Ok(nuff)
+        } else {
+            nuff
+        }
+    }
+}
+
+/// Extract `target-version` from `pyproject.toml` in the given directory
+/// if the file exists and has `requires-python`.
+fn get_fallback_target_version(dir: &Path) -> Option<PythonVersion> {
+    let pyproject_path = dir.join("pyproject.toml");
+    if !pyproject_path.exists() {
+        return None;
+    }
+    let parsed_pyproject = parse_pyproject_toml(&pyproject_path);
+
+    let pyproject = match parsed_pyproject {
+        Ok(pyproject) => pyproject,
+        Err(err) => {
+            debug!("Failed to find fallback `target-version` due to: {err}");
+            return None;
+        }
+    };
+
+    if let Some(project) = pyproject.project {
+        if let Some(requires_python) = project.requires_python {
+            return get_minimum_supported_version(&requires_python);
+        }
+    }
+    None
+}
+
+/// Infer the minimum supported [`PythonVersion`] from a `requires-python` specifier.
+fn get_minimum_supported_version(requires_version: &VersionSpecifiers) -> Option<PythonVersion> {
+    /// Truncate a version to its major and minor components.
+    fn major_minor(version: &Version) -> Option<Version> {
+        let major = version.release().first()?;
+        let minor = version.release().get(1)?;
+        Some(Version::new([major, minor]))
+    }
+
+    // Extract the minimum supported version from the specifiers.
+    let minimum_version = requires_version
+        .iter()
+        .filter(|specifier| {
+            matches!(
+                specifier.operator(),
+                Operator::Equal
+                    | Operator::EqualStar
+                    | Operator::ExactEqual
+                    | Operator::TildeEqual
+                    | Operator::GreaterThan
+                    | Operator::GreaterThanEqual
+            )
+        })
+        .filter_map(|specifier| major_minor(specifier.version()))
+        .min()?;
+
+    debug!("Detected minimum supported `requires-python` version: {minimum_version}");
+
+    // Find the Python version that matches the minimum supported version.
+    PythonVersion::iter().find(|version| Version::from(*version) == minimum_version)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+    use std::str::FromStr;
+    use std::sync::Arc;
+
+    use anyhow::{Context, Result};
+    use rustc_hash::FxHashMap;
+    use tempfile::TempDir;
+
+    use nuff_db::system::SystemPathBuf;
+    use nuff_linter::UnresolvedRuleSelector;
+    use nuff_linter::settings::types::PatternPrefixPair;
+    use nuff_ranged_value::{ValueSource, ValueSourceGuard};
+
+    use crate::options::{LintCommonOptions, LintOptions, NuffOptions, Options};
+    use crate::pyproject::{Pyproject, Tools, find_settings_toml, parse_pyproject_toml};
+
+    #[test]
+    fn deserialize() -> Result<()> {
+        let _guard = ValueSourceGuard::new(
+            ValueSource::File(Arc::new(SystemPathBuf::from("<filename>"))),
+            true,
+        );
+        let pyproject: Pyproject = toml::from_str(r"")?;
+        assert_eq!(pyproject.tool, None);
+
+        let pyproject: Pyproject = toml::from_str(
+            r"
+[tool.black]
+",
+        )?;
+        assert_eq!(pyproject.tool, Some(Tools { nuff: None }));
+
+        let pyproject: Pyproject = toml::from_str(
+            r"
+[tool.black]
+[tool.nuff]
+",
+        )?;
+        assert_eq!(
+            pyproject.tool,
+            Some(Tools {
+                nuff: Some(Options::default())
+            })
+        );
+
+        let pyproject: Pyproject = toml::from_str(
+            r"
+[tool.black]
+[tool.nuff]
+respect-gitignore = false
+",
+        )?;
+        assert_eq!(
+            pyproject.tool,
+            Some(Tools {
+                nuff: Some(Options {
+                    respect_gitignore: Some(false),
+                    ..Options::default()
+                })
+            })
+        );
+
+        let pyproject: Pyproject = toml::from_str(
+            r#"
+[tool.black]
+[tool.nuff]
+exclude = ["foo.py"]
+"#,
+        )?;
+        assert_eq!(
+            pyproject.tool,
+            Some(Tools {
+                nuff: Some(Options {
+                    exclude: Some(vec!["foo.py".to_string()]),
+                    ..Options::default()
+                })
+            })
+        );
+
+        let pyproject: Pyproject = toml::from_str(
+            r#"
+[tool.black]
+[tool.nuff.lint]
+select = ["F401"]
+"#,
+        )?;
+        assert_eq!(
+            pyproject.tool,
+            Some(Tools {
+                nuff: Some(Options {
+                    lint: Some(LintOptions {
+                        common: LintCommonOptions {
+                            select: Some(vec![UnresolvedRuleSelector::cli("F401")]),
+                            ..LintCommonOptions::default()
+                        },
+                        ..LintOptions::default()
+                    }),
+                    ..Options::default()
+                })
+            })
+        );
+
+        let pyproject: Pyproject = toml::from_str(
+            r#"
+[tool.black]
+[tool.nuff.lint]
+extend-select = ["ASYNC100"]
+ignore = ["F401"]
+"#,
+        )?;
+        assert_eq!(
+            pyproject.tool,
+            Some(Tools {
+                nuff: Some(Options {
+                    lint: Some(LintOptions {
+                        common: LintCommonOptions {
+                            extend_select: Some(vec![UnresolvedRuleSelector::cli("ASYNC100")]),
+                            ignore: Some(vec![UnresolvedRuleSelector::cli("F401")]),
+                            ..LintCommonOptions::default()
+                        },
+                        ..LintOptions::default()
+                    }),
+                    ..Options::default()
+                })
+            })
+        );
+
+        let pyproject: Pyproject = toml::from_str(
+            r#"
+[tool.nuff.lint.nuff]
+blocking-functions = ["app.slow"]
+"#,
+        )?;
+        assert_eq!(
+            pyproject.tool,
+            Some(Tools {
+                nuff: Some(Options {
+                    lint: Some(LintOptions {
+                        common: LintCommonOptions {
+                            nuff: Some(NuffOptions {
+                                blocking_functions: Some(vec!["app.slow".to_string()]),
+                                ..NuffOptions::default()
+                            }),
+                            ..LintCommonOptions::default()
+                        },
+                        ..LintOptions::default()
+                    }),
+                    ..Options::default()
+                })
+            })
+        );
+
+        assert!(
+            toml::from_str::<Pyproject>(
+                r"
+[tool.black]
+[tool.nuff]
+respect_gitignore = false
+",
+            )
+            .is_err()
+        );
+
+        assert!(
+            toml::from_str::<Pyproject>(
+                r#"
+[tool.black]
+[tool.nuff.lint]
+select = ["E123"]
+"#,
+            )
+            .is_ok()
+        );
+
+        assert!(
+            toml::from_str::<Pyproject>(
+                r"
+[tool.black]
+[tool.nuff]
+respect-gitignore = false
+other-attribute = 1
+",
+            )
+            .is_err()
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn find_and_parse_pyproject_toml() -> Result<()> {
+        let tempdir = TempDir::new()?;
+        let nuff_toml = tempdir.path().join("pyproject.toml");
+        fs::write(
+            nuff_toml,
+            r#"
+[tool.nuff]
+extend-exclude = [
+  "excluded_file.py",
+  "migrations",
+  "with_excluded_file/other_excluded_file.py",
+]
+
+[tool.nuff.lint]
+per-file-ignores = { "__init__.py" = ["F401"] }
+"#,
+        )?;
+
+        let pyproject =
+            find_settings_toml(tempdir.path())?.context("Failed to find pyproject.toml")?;
+        let pyproject = parse_pyproject_toml(&pyproject)?;
+        let config = pyproject
+            .tool
+            .context("Expected to find [tool] field")?
+            .nuff
+            .context("Expected to find [tool.nuff] field")?;
+        assert_eq!(
+            config,
+            Options {
+                extend_exclude: Some(vec![
+                    "excluded_file.py".to_string(),
+                    "migrations".to_string(),
+                    "with_excluded_file/other_excluded_file.py".to_string(),
+                ]),
+
+                lint: Some(LintOptions {
+                    common: LintCommonOptions {
+                        per_file_ignores: Some(FxHashMap::from_iter([(
+                            "__init__.py".to_string(),
+                            vec![UnresolvedRuleSelector::cli("F401")]
+                        )])),
+                        ..LintCommonOptions::default()
+                    },
+                    ..LintOptions::default()
+                }),
+                ..Options::default()
+            }
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn str_pattern_prefix_pair() {
+        let result = PatternPrefixPair::from_str("foo:E501");
+        assert!(result.is_ok());
+        let result = PatternPrefixPair::from_str("foo: E501");
+        assert!(result.is_ok());
+        let result = PatternPrefixPair::from_str("E501:foo");
+        assert!(result.is_ok());
+        let result = PatternPrefixPair::from_str("E501");
+        assert!(result.is_err());
+        let result = PatternPrefixPair::from_str("foo");
+        assert!(result.is_err());
+        let result = PatternPrefixPair::from_str("foo:E501:E402");
+        assert!(result.is_err());
+        let result = PatternPrefixPair::from_str("**/bar:E501");
+        assert!(result.is_ok());
+        let result = PatternPrefixPair::from_str("bar:E503");
+        assert!(result.is_ok());
+    }
+}

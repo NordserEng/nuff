@@ -1,0 +1,52 @@
+---
+source: crates/nuff_linter/src/rules/nuff/mod.rs
+---
+NUF005 `app.billing.services.vipps.stop_agreement` is called while the session's transaction is open; commit first
+  --> NUF005.py:14:11
+   |
+12 | async def read_then_call(session: AsyncSession, company_id: int) -> None:
+13 |     company = await session.get(Company, company_id)
+14 |     await vipps.stop_agreement(company.agreement_id)  # NUF005
+   |           ^^^^^^^^^^^^^^^^^^^^
+
+NUF005 `app.accounts.services.brreg.fetch_company` is called while the session's transaction is open; commit first
+  --> NUF005.py:19:29
+   |
+17 | async def thread_hop_still_counts(session: AsyncSession, org: str) -> None:
+18 |     await session.execute(select(Company))
+19 |     await asyncio.to_thread(brreg.fetch_company, org)  # NUF005
+   |                             ^^^^^^^^^^^^^^^^^^^
+
+NUF005 `app.billing.services.vipps.create_charge` is called while the session's transaction is open; commit first
+  --> NUF005.py:24:11
+   |
+22 | async def annotated(session: Annotated[AsyncSession, Depends()], company_id: int) -> None:
+23 |     session.add(Company())
+24 |     await vipps.create_charge("a")  # NUF005
+   |           ^^^^^^^^^^^^^^^^^^^
+
+NUF005 `app.billing.services.vipps.list_charges` is called while the session's transaction is open; commit first
+  --> NUF005.py:29:15
+   |
+27 | async def begin_block(session: AsyncSession) -> None:
+28 |     async with session.begin():
+29 |         await vipps.list_charges("a")  # NUF005
+   |               ^^^^^^^^^^^^^^^^^^
+30 |     await vipps.list_charges("a")
+   |
+
+NUF005 `app.billing.services.vipps.stop_agreement` is called while the session's transaction is open; commit first
+  --> NUF005.py:69:11
+   |
+67 | async def helper_reads_through_session(session: AsyncSession, company_id: int) -> None:
+68 |     company = await billable_company(session, company_id)
+69 |     await vipps.stop_agreement(company.agreement_id)  # NUF005
+   |           ^^^^^^^^^^^^^^^^^^^^
+
+NUF005 `app.accounts.services.brreg.fetch_company` is called while the session's transaction is open; commit first
+  --> NUF005.py:92:29
+   |
+90 |     else:
+91 |         pass
+92 |     await asyncio.to_thread(brreg.fetch_company, org)  # NUF005
+   |                             ^^^^^^^^^^^^^^^^^^^

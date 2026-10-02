@@ -1,15 +1,15 @@
 # Benchmarking cpython (CONTRIBUTING.md)
-crates/ruff_linter/resources/test/cpython
+crates/nuff_linter/resources/test/cpython
 # generate_mkdocs.py
 mkdocs.generated.yml
 # check_ecosystem.py
-ruff-old
+nuff-old
 github_search*.jsonl
 # update_schemastore.py
 schemastore
 # `maturin develop` and ecosystem_all_check.sh
 .venv*
-# Formatter debugging (crates/ruff_python_formatter/README.md)
+# Formatter debugging (crates/nuff_python_formatter/README.md)
 scratch.*
 # Created by `perf` (CONTRIBUTING.md)
 perf.data
@@ -18,7 +18,7 @@ perf.data.old
 flamegraph.svg
 # Additional target directories that don't invalidate the main compile cache when changing linker settings,
 # e.g. `CARGO_TARGET_DIR=target-maturin maturin build --release --strip` or
-# `CARGO_TARGET_DIR=target-llvm-lines RUSTFLAGS="-Csymbol-mangling-version=v0" cargo llvm-lines -p ruff --lib`
+# `CARGO_TARGET_DIR=target-llvm-lines RUSTFLAGS="-Csymbol-mangling-version=v0" cargo llvm-lines -p nuff --lib`
 /target*
 
 # samply profiles
@@ -223,7 +223,7 @@ cython_debug/
 .sw?
 
 # Custom re-inclusions for the resolver test cases
-!crates/ruff_python_resolver/resources/test/airflow/venv/
-!crates/ruff_python_resolver/resources/test/airflow/venv/lib
-!crates/ruff_python_resolver/resources/test/airflow/venv/lib/python3.11/site-packages/_watchdog_fsevents.cpython-311-darwin.so
-!crates/ruff_python_resolver/resources/test/airflow/venv/lib/python3.11/site-packages/orjson/orjson.cpython-311-darwin.so
+!crates/nuff_python_resolver/resources/test/airflow/venv/
+!crates/nuff_python_resolver/resources/test/airflow/venv/lib
+!crates/nuff_python_resolver/resources/test/airflow/venv/lib/python3.11/site-packages/_watchdog_fsevents.cpython-311-darwin.so
+!crates/nuff_python_resolver/resources/test/airflow/venv/lib/python3.11/site-packages/orjson/orjson.cpython-311-darwin.so

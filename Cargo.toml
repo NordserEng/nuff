@@ -3,44 +3,42 @@ members = ["crates/*"]
 resolver = "2"
 
 [workspace.package]
-# Please update rustfmt.toml when bumping the Rust edition
+version = "0.2.0"
 edition = "2024"
 rust-version = "1.97"
-homepage = "https://docs.astral.sh/ruff"
 repository = "https://github.com/NordserEng/nuff"
-authors = ["Charlie Marsh <charlie.r.marsh@gmail.com>"]
+authors = ["Nordser"]
 license = "MIT"
 
 [workspace.dependencies]
 char_str = { version = "0.0.4", default-features = false, features = ["std"] }
-ruff_annotate_snippets = { version = "0.0.16", path = "crates/ruff_annotate_snippets" }
-ruff_cache = { version = "0.0.16", path = "crates/ruff_cache" }
-ruff_command_line = { version = "0.0.16", path = "crates/ruff_command_line" }
-ruff_db = { version = "0.0.16", path = "crates/ruff_db", default-features = false }
-ruff_diagnostics = { version = "0.0.16", path = "crates/ruff_diagnostics" }
-ruff_index = { version = "0.0.16", path = "crates/ruff_index" }
-ruff_linter = { version = "0.16.10", path = "crates/ruff_linter" }
-ruff_macros = { version = "0.0.16", path = "crates/ruff_macros" }
-ruff_memory_usage = { version = "0.0.16", path = "crates/ruff_memory_usage" }
-ruff_notebook = { version = "0.0.16", path = "crates/ruff_notebook" }
-ruff_options_metadata = { version = "0.0.16", path = "crates/ruff_options_metadata" }
-ruff_python_ast = { version = "0.0.16", path = "crates/ruff_python_ast" }
-ruff_python_codegen = { version = "0.0.16", path = "crates/ruff_python_codegen" }
-ruff_python_edits = { version = "0.0.16", path = "crates/ruff_python_edits" }
-ruff_python_importer = { version = "0.0.16", path = "crates/ruff_python_importer" }
-ruff_python_index = { version = "0.0.16", path = "crates/ruff_python_index" }
-ruff_python_literal = { version = "0.0.16", path = "crates/ruff_python_literal" }
-ruff_python_parser = { version = "0.0.16", path = "crates/ruff_python_parser" }
-ruff_python_semantic = { version = "0.0.16", path = "crates/ruff_python_semantic" }
-ruff_python_stdlib = { version = "0.0.16", path = "crates/ruff_python_stdlib" }
-ruff_python_trivia = { version = "0.0.16", path = "crates/ruff_python_trivia" }
-ruff_source_file = { version = "0.0.16", path = "crates/ruff_source_file" }
-ruff_ranged_value = { version = "0.0.16", path = "crates/ruff_ranged_value" }
-ruff_text_size = { version = "0.0.16", path = "crates/ruff_text_size" }
-ruff_workspace = { version = "0.0.16", path = "crates/ruff_workspace" }
+nuff_annotate_snippets = { path = "crates/nuff_annotate_snippets" }
+nuff_cache = { path = "crates/nuff_cache" }
+nuff_command_line = { path = "crates/nuff_command_line" }
+nuff_db = { path = "crates/nuff_db", default-features = false }
+nuff_diagnostics = { path = "crates/nuff_diagnostics" }
+nuff_index = { path = "crates/nuff_index" }
+nuff_linter = { path = "crates/nuff_linter" }
+nuff_macros = { path = "crates/nuff_macros" }
+nuff_memory_usage = { path = "crates/nuff_memory_usage" }
+nuff_notebook = { path = "crates/nuff_notebook" }
+nuff_options_metadata = { path = "crates/nuff_options_metadata" }
+nuff_python_ast = { path = "crates/nuff_python_ast" }
+nuff_python_codegen = { path = "crates/nuff_python_codegen" }
+nuff_python_edits = { path = "crates/nuff_python_edits" }
+nuff_python_importer = { path = "crates/nuff_python_importer" }
+nuff_python_index = { path = "crates/nuff_python_index" }
+nuff_python_literal = { path = "crates/nuff_python_literal" }
+nuff_python_parser = { path = "crates/nuff_python_parser" }
+nuff_python_semantic = { path = "crates/nuff_python_semantic" }
+nuff_python_stdlib = { path = "crates/nuff_python_stdlib" }
+nuff_python_trivia = { path = "crates/nuff_python_trivia" }
+nuff_source_file = { path = "crates/nuff_source_file" }
+nuff_ranged_value = { path = "crates/nuff_ranged_value" }
+nuff_text_size = { path = "crates/nuff_text_size" }
+nuff_workspace = { path = "crates/nuff_workspace" }
 
-ty_static = { version = "0.0.16", path = "crates/ty_static" }
-
+nuff_static = { path = "crates/nuff_static" }
 
 aho-corasick = { version = "1.1.3", default-features = false, features = ["perf-literal", "std"] }
 arrayvec = { version = "0.7.6", default-features = false }
@@ -263,9 +261,9 @@ codegen-units = 16
 # Some crates don't change as much but benefit more from
 # more expensive optimization passes, so we selectively
 # decrease codegen-units in some cases.
-[profile.release.package.ruff_python_parser]
+[profile.release.package.nuff_python_parser]
 codegen-units = 1
-[profile.release.package.ruff_python_ast]
+[profile.release.package.nuff_python_ast]
 codegen-units = 1
 [profile.release.package.salsa]
 codegen-units = 1

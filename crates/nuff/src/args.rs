@@ -10,20 +10,20 @@ use clap::builder::Styles;
 use clap::builder::styling::{AnsiColor, Effects};
 use clap::builder::{TypedValueParser, ValueParserFactory};
 use itertools::Itertools;
-use path_absolutize::path_dedot;
-use regex::Regex;
-use ruff_linter::logging::LogLevel;
-use ruff_linter::settings::types::{
+use nuff_linter::logging::LogLevel;
+use nuff_linter::settings::types::{
     ExtensionPair, FilePattern, OutputFormat, PatternPrefixPair, PerFileIgnore, PreviewMode,
     PythonVersion, UnsafeFixes,
 };
-use ruff_linter::{UnresolvedRuleSelector, UnresolvedRuleSelectorParser};
-use ruff_options_metadata::{OptionEntry, OptionsMetadata};
-use ruff_python_ast as ast;
-use ruff_ranged_value::{ValueSource, ValueSourceGuard};
-use ruff_workspace::configuration::{Configuration, RuleSelection};
-use ruff_workspace::options::Options;
-use ruff_workspace::resolver::ConfigurationTransformer;
+use nuff_linter::{UnresolvedRuleSelector, UnresolvedRuleSelectorParser};
+use nuff_options_metadata::{OptionEntry, OptionsMetadata};
+use nuff_python_ast as ast;
+use nuff_ranged_value::{ValueSource, ValueSourceGuard};
+use nuff_workspace::configuration::{Configuration, RuleSelection};
+use nuff_workspace::options::Options;
+use nuff_workspace::resolver::ConfigurationTransformer;
+use path_absolutize::path_dedot;
+use regex::Regex;
 use rustc_hash::FxHashMap;
 use toml;
 
@@ -33,9 +33,9 @@ use toml;
 pub struct GlobalConfigArgs {
     #[clap(flatten)]
     log_level_args: LogLevelArgs,
-    /// Either a path to a TOML configuration file (`pyproject.toml` or `ruff.toml`),
+    /// Either a path to a TOML configuration file (`pyproject.toml` or `nuff.toml`),
     /// or a TOML `<KEY> = <VALUE>` pair
-    /// (such as you might find in a `ruff.toml` configuration file)
+    /// (such as you might find in a `nuff.toml` configuration file)
     /// overriding a specific configuration option
     /// (e.g., `--config "line-length = 100"` or `--config "format.quote-style = 'single'"`).
     /// Overrides of individual settings using this option always take precedence
@@ -57,7 +57,7 @@ pub struct GlobalConfigArgs {
     // as well as configuration files.
     // Specifying a configuration file conflicts with `--isolated`;
     // specifying a configuration override does not.
-    // If a user specifies `ruff check --isolated --config=ruff.toml`,
+    // If a user specifies `nuff check --isolated --config=nuff.toml`,
     // we emit an error later on, after the initial parsing by clap.
     #[arg(long, help_heading = "Global options", global = true)]
     isolated: bool,
@@ -121,7 +121,7 @@ pub enum Command {
     Check(CheckCommand),
 }
 
-// The `Parser` derive is for ruff_dev, for ruff `Args` would be sufficient
+// The `Parser` derive is for nuff_dev, for nuff `Args` would be sufficient
 #[derive(Clone, Debug, clap::Parser)]
 #[expect(clippy::struct_excessive_bools)]
 pub struct CheckCommand {
@@ -162,11 +162,11 @@ pub struct CheckCommand {
 
     /// Output serialization format for violations.
     /// The default serialization format is "full".
-    #[arg(long, value_enum, env = "RUFF_OUTPUT_FORMAT")]
+    #[arg(long, value_enum, env = "NUFF_OUTPUT_FORMAT")]
     output_format: Option<OutputFormat>,
 
     /// Specify file to write the linter output to (default: stdout).
-    #[arg(short, long, env = "RUFF_OUTPUT_FILE")]
+    #[arg(short, long, env = "NUFF_OUTPUT_FILE")]
     output_file: Option<PathBuf>,
     /// The minimum Python version that should be supported.
     #[arg(long, value_enum)]
@@ -289,7 +289,7 @@ pub struct CheckCommand {
     respect_gitignore: bool,
     #[clap(long, overrides_with("respect_gitignore"), hide = true)]
     no_respect_gitignore: bool,
-    /// Enforce exclusions, even for paths passed to Ruff directly on the command-line.
+    /// Enforce exclusions, even for paths passed to nuff directly on the command-line.
     /// Use `--no-force-exclude` to disable.
     #[arg(
         long,
@@ -303,10 +303,10 @@ pub struct CheckCommand {
     #[arg(long, help_heading = "Rule configuration", hide = true)]
     dummy_variable_rgx: Option<Regex>,
     /// Disable cache reads.
-    #[arg(short, long, env = "RUFF_NO_CACHE", help_heading = "Miscellaneous")]
+    #[arg(short, long, env = "NUFF_NO_CACHE", help_heading = "Miscellaneous")]
     no_cache: bool,
     /// Path to the cache directory.
-    #[arg(long, env = "RUFF_CACHE_DIR", help_heading = "Miscellaneous")]
+    #[arg(long, env = "NUFF_CACHE_DIR", help_heading = "Miscellaneous")]
     cache_dir: Option<PathBuf>,
     /// The name of the file when passing it through stdin.
     #[arg(long, help_heading = "Miscellaneous")]
@@ -388,7 +388,7 @@ pub struct ConfigArguments {
     pub(crate) isolated: bool,
     /// The logging level to be used, derived from command-line arguments passed
     pub(crate) log_level: LogLevel,
-    /// Path to a pyproject.toml or ruff.toml configuration file (etc.).
+    /// Path to a pyproject.toml or nuff.toml configuration file (etc.).
     /// Either 0 or 1 configuration file paths may be provided on the command line.
     config_file: Option<PathBuf>,
     /// Overrides provided via the `--config "KEY=VALUE"` option.
@@ -433,7 +433,7 @@ impl ConfigArguments {
 The argument `--config={}` cannot be used with `--isolated`
 
   tip: You cannot specify a configuration file and also specify `--isolated`,
-       as `--isolated` causes ruff to ignore all configuration files.
+       as `--isolated` causes nuff to ignore all configuration files.
        For more information, try `--help`.
 ",
                             path.display()
@@ -507,7 +507,7 @@ impl CheckCommand {
             select: self.select,
             target_version: self.target_version.map(ast::PythonVersion::from),
             unfixable: self.unfixable,
-            // TODO(charlie): Included in `pyproject.toml`, but not inherited.
+            // TODO: Included in `pyproject.toml`, but not inherited.
             cache_dir: self.cache_dir,
             fix: resolve_bool_arg(self.fix, self.no_fix),
             fix_only: resolve_bool_arg(self.fix_only, self.no_fix_only),
@@ -538,11 +538,11 @@ fn resolve_bool_arg(yes: bool, no: bool) -> Option<bool> {
 #[derive(Debug)]
 enum InvalidConfigFlagReason {
     InvalidToml(toml::de::Error),
-    /// It was valid TOML, but not a valid ruff config file.
+    /// It was valid TOML, but not a valid nuff config file.
     /// E.g. the user tried to select a rule that doesn't exist,
     /// or tried to enable a setting that doesn't exist
-    ValidTomlButInvalidRuffSchema(toml::de::Error),
-    /// It was a valid ruff config file, but the user tried to pass a
+    ValidTomlButInvalidNuffSchema(toml::de::Error),
+    /// It was a valid nuff config file, but the user tried to pass a
     /// value for `extend` as part of the config override.
     /// `extend` is special, because it affects which config files we look at
     /// in the first place. We currently only parse --config overrides *after*
@@ -556,8 +556,8 @@ impl InvalidConfigFlagReason {
     const fn description(&self) -> &'static str {
         match self {
             Self::InvalidToml(_) => "The supplied argument is not valid TOML",
-            Self::ValidTomlButInvalidRuffSchema(_) => {
-                "Could not parse the supplied argument as a `ruff.toml` configuration option"
+            Self::ValidTomlButInvalidNuffSchema(_) => {
+                "Could not parse the supplied argument as a `nuff.toml` configuration option"
             }
             Self::ExtendPassedViaConfigFlag => "Cannot include `extend` in a --config flag value",
         }
@@ -574,7 +574,7 @@ impl InvalidConfigFlagReason {
 /// For example:
 ///
 /// ```sh
-/// ruff check --config "path/to/ruff.toml" --config "extend-select=['E501', 'F841']" --config "lint.per-file-ignores = {'some_file.py' = ['F841']}"
+/// nuff check --config "path/to/nuff.toml" --config "extend-select=['E501', 'F841']" --config "lint.per-file-ignores = {'some_file.py' = ['F841']}"
 /// ```
 #[derive(Clone, Debug)]
 pub enum SingleConfigArgument {
@@ -632,7 +632,7 @@ impl TypedValueParser for ConfigArgumentParser {
                     InvalidConfigFlagReason::ExtendPassedViaConfigFlag
                 }
                 Err(underlying_error) => {
-                    InvalidConfigFlagReason::ValidTomlButInvalidRuffSchema(underlying_error)
+                    InvalidConfigFlagReason::ValidTomlButInvalidNuffSchema(underlying_error)
                 }
             },
             Err(underlying_error) => InvalidConfigFlagReason::InvalidToml(underlying_error),
@@ -660,7 +660,7 @@ impl TypedValueParser for ConfigArgumentParser {
                 return Err(new_error);
             }
             InvalidConfigFlagReason::InvalidToml(underlying_error)
-            | InvalidConfigFlagReason::ValidTomlButInvalidRuffSchema(underlying_error) => {
+            | InvalidConfigFlagReason::ValidTomlButInvalidNuffSchema(underlying_error) => {
                 underlying_error
             }
         };
@@ -772,7 +772,7 @@ struct ExplicitConfigOverrides {
     select: Option<Vec<UnresolvedRuleSelector>>,
     target_version: Option<ast::PythonVersion>,
     unfixable: Option<Vec<UnresolvedRuleSelector>>,
-    // TODO(charlie): Captured in pyproject.toml as a default, but not part of `Settings`.
+    // TODO: Captured in pyproject.toml as a default, but not part of `Settings`.
     cache_dir: Option<PathBuf>,
     fix: Option<bool>,
     fix_only: Option<bool>,
