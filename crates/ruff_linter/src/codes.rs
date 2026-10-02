@@ -1155,6 +1155,13 @@ pub fn code_to_rule(linter: Linter, code: &str) -> Option<(RuleStatus, Rule)> {
         (Pydoclint, "501") => rules::pydoclint::rules::DocstringMissingException,
         (Pydoclint, "502") => rules::pydoclint::rules::DocstringExtraneousException,
 
+        // nuff
+        (Nuff, "001") => rules::nuff::rules::BlockingCallOutsideThread,
+        (Nuff, "002") => rules::nuff::rules::RouteReturnsDict,
+        (Nuff, "003") => rules::nuff::rules::AlembicDowngrade,
+        (Nuff, "004") => rules::nuff::rules::ForeignKeyModelNotImported,
+        (Nuff, "005") => rules::nuff::rules::ExternalCallInTransaction,
+
         // ruff
         (Ruff, "001") => rules::ruff::rules::AmbiguousUnicodeCharacterString,
         (Ruff, "002") => rules::ruff::rules::AmbiguousUnicodeCharacterDocstring,

@@ -1,0 +1,2 @@
+def downgrade() -> None:
+    pass
