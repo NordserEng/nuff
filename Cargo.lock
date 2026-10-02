@@ -1085,7 +1085,7 @@ checksum = "61807f77802ff30975e01f4f071c8ba10c022052f98b3294119f3e615d13e5be"
 
 [[package]]
 name = "nuff"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "bitflags 2.13.1",
@@ -1125,7 +1125,7 @@ dependencies = [
 
 [[package]]
 name = "nuff_annotate_snippets"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anstream 1.0.0",
  "anstyle",
@@ -1137,7 +1137,7 @@ dependencies = [
 
 [[package]]
 name = "nuff_cache"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "char_str",
  "filetime",
@@ -1151,14 +1151,14 @@ dependencies = [
 
 [[package]]
 name = "nuff_command_line"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "argfile",
 ]
 
 [[package]]
 name = "nuff_diagnostics"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "is-macro",
  "nuff_text_size",
@@ -1167,7 +1167,7 @@ dependencies = [
 
 [[package]]
 name = "nuff_index"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "nuff_macros",
  "static_assertions",
@@ -1175,7 +1175,7 @@ dependencies = [
 
 [[package]]
 name = "nuff_linter"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anstyle",
  "anyhow",
@@ -1231,7 +1231,7 @@ dependencies = [
 
 [[package]]
 name = "nuff_macros"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "heck",
  "itertools",
@@ -1244,7 +1244,7 @@ dependencies = [
 
 [[package]]
 name = "nuff_notebook"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "nuff_diagnostics",
@@ -1260,14 +1260,14 @@ dependencies = [
 
 [[package]]
 name = "nuff_options_metadata"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "nuff_python_ast"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "aho-corasick",
  "arrayvec",
@@ -1289,7 +1289,7 @@ dependencies = [
 
 [[package]]
 name = "nuff_python_codegen"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "nuff_python_ast",
  "nuff_python_literal",
@@ -1301,7 +1301,7 @@ dependencies = [
 
 [[package]]
 name = "nuff_python_importer"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "insta",
@@ -1316,7 +1316,7 @@ dependencies = [
 
 [[package]]
 name = "nuff_python_index"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "nuff_python_ast",
  "nuff_python_parser",
@@ -1327,7 +1327,7 @@ dependencies = [
 
 [[package]]
 name = "nuff_python_literal"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bitflags 2.13.1",
  "icu_properties",
@@ -1337,7 +1337,7 @@ dependencies = [
 
 [[package]]
 name = "nuff_python_parser"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bitflags 2.13.1",
  "bstr",
@@ -1359,7 +1359,7 @@ dependencies = [
 
 [[package]]
 name = "nuff_python_semantic"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bitflags 2.13.1",
  "insta",
@@ -1379,7 +1379,7 @@ dependencies = [
 
 [[package]]
 name = "nuff_python_stdlib"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bitflags 2.13.1",
  "unicode-ident",
@@ -1387,7 +1387,7 @@ dependencies = [
 
 [[package]]
 name = "nuff_python_trivia"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "itertools",
  "memchr",
@@ -1400,7 +1400,7 @@ dependencies = [
 
 [[package]]
 name = "nuff_source_file"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "memchr",
  "nuff_text_size",
@@ -1409,7 +1409,7 @@ dependencies = [
 
 [[package]]
 name = "nuff_text_size"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde",
  "serde_test",
@@ -1418,7 +1418,7 @@ dependencies = [
 
 [[package]]
 name = "nuff_workspace"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "colored",
